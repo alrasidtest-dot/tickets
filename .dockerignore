@@ -1,0 +1,9 @@
+.git
+.gitignore
+.env
+.env.example
+docs
+*.md
+logs/*.log
+uploads/*
+!uploads/.gitkeep

@@ -1,0 +1,11 @@
+# Local environment / secrets — never commit.
+.env
+
+# Runtime artifacts.
+logs/*.log
+uploads/*
+!uploads/.gitkeep
+
+# OS / editor noise.
+.DS_Store
+Thumbs.db

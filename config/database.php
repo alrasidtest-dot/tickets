@@ -3,18 +3,29 @@
  * Database connection settings.
  * Consumed by core/Database.php to build the PDO DSN.
  *
- * WARNING — LOCAL DEVELOPMENT ONLY.
- * The credentials below (root/root) are for a local dev environment only.
- * They MUST be changed before any production deployment. See .env.example
- * for the documented variables; a full .env loader is intentionally out of
- * scope for the current phases.
+ * Values are read from environment variables when present (production /
+ * Railway), and fall back to the local development credentials otherwise.
+ * Both the project's own DB_* names and Railway's default MYSQL* names are
+ * supported. The local fallbacks (root/root) are for local development only.
  */
 
+// Return the first non-empty environment variable from the given names, or
+// the provided default when none are set.
+$env = static function (array $names, $default) {
+    foreach ($names as $name) {
+        $value = getenv($name);
+        if ($value !== false && $value !== '') {
+            return $value;
+        }
+    }
+    return $default;
+};
+
 return [
-    'host'    => 'localhost',
-    'port'    => '3306',
-    'dbname'  => 'it_helpdesk',
-    'user'    => 'root',
-    'pass'    => 'root',
-    'charset' => 'utf8mb4',
+    'host'    => $env(['DB_HOST', 'MYSQLHOST'],     'localhost'),
+    'port'    => $env(['DB_PORT', 'MYSQLPORT'],     '3306'),
+    'dbname'  => $env(['DB_NAME', 'MYSQLDATABASE'], 'it_helpdesk'),
+    'user'    => $env(['DB_USER', 'MYSQLUSER'],     'root'),
+    'pass'    => $env(['DB_PASS', 'MYSQLPASSWORD'], 'root'),
+    'charset' => $env(['DB_CHARSET'],               'utf8mb4'),
 ];
