@@ -5,6 +5,10 @@ FROM php:8.2-apache
 # PDO MySQL driver required by core/Database.php.
 RUN docker-php-ext-install pdo_mysql
 
+# Force a single MPM. The base image can end up with more than one MPM loaded
+# (Apache error AH00534); PHP needs the prefork MPM, so disable the others.
+RUN a2dismod mpm_event mpm_worker 2>/dev/null; a2enmod mpm_prefork
+
 # Enable rewrite (harmless; routing is query-string based).
 RUN a2enmod rewrite
 
