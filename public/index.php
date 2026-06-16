@@ -19,9 +19,15 @@ declare(strict_types=1);
 // ---- Bootstrap -------------------------------------------------------------
 require __DIR__ . '/../config/constants.php';
 require CORE_PATH . '/Database.php';
+require CORE_PATH . '/Installer.php';
 require CORE_PATH . '/Helpers.php';
 require CORE_PATH . '/Auth.php';
 require CORE_PATH . '/Router.php';
+
+// Create the schema on first run when the database is still empty (no-op once
+// the tables exist). Lets a fresh deployment self-provision without a manual
+// import step.
+Installer::ensure();
 
 // Start session + enforce idle timeout for every request.
 Auth::start();
