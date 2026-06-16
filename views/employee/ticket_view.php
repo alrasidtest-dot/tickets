@@ -127,39 +127,64 @@ require VIEWS_PATH . '/layout/sidebar.php';
                 </div>
 
                 <?php if (!empty($isAdmin)): ?>
+                    <?php $reassignModalOpen = !empty($errors['reassign']); ?>
                     <div class="card">
                         <h2 class="card__title"><?php echo e(t('admin_reassign_title')); ?></h2>
 
                         <?php if (!$agents): ?>
                             <p class="empty-state"><?php echo e(t('admin_no_agents')); ?></p>
                         <?php else: ?>
-                            <form method="post"
-                                  action="<?php echo e(BASE_URL); ?>?page=ticket_view&amp;id=<?php echo (int) $ticket['id']; ?>">
-                                <?php echo Auth::csrfField(); ?>
-                                <input type="hidden" name="action" value="reassign">
-
-                                <div class="form-group">
-                                    <label class="form-label" for="agent_id"><?php echo e(t('admin_reassign_label')); ?></label>
-                                    <select class="form-control" id="agent_id" name="agent_id" required>
-                                        <option value=""><?php echo e(t('select_placeholder')); ?></option>
-                                        <?php foreach ($agents as $a): ?>
-                                            <option value="<?php echo (int) $a['id']; ?>"
-                                                <?php echo ((int) $ticket['assigned_to'] === (int) $a['id']) ? 'selected' : ''; ?>>
-                                                <?php echo e($a['full_name']); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                    <?php if (!empty($errors['reassign'])): ?>
-                                        <p class="form-error"><?php echo e(t($errors['reassign'])); ?></p>
-                                    <?php endif; ?>
-                                </div>
-
-                                <div class="form-actions">
-                                    <button class="btn btn-primary" type="submit"><?php echo e(t('admin_reassign_submit')); ?></button>
-                                </div>
-                            </form>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-primary modal-trigger" data-modal-open="reassignModal">
+                                    <?php echo e(t('admin_reassign_submit')); ?>
+                                </button>
+                            </div>
                         <?php endif; ?>
                     </div>
+
+                    <?php if ($agents): ?>
+                        <div class="modal" id="reassignModal" role="dialog" aria-modal="true"
+                             aria-labelledby="reassignModalTitle"<?php echo $reassignModalOpen ? ' data-open-on-load="1"' : ''; ?>>
+                            <div class="modal__overlay" data-modal-close></div>
+                            <div class="modal__dialog" role="document">
+                                <div class="modal__header">
+                                    <h2 class="modal__title" id="reassignModalTitle"><?php echo e(t('admin_reassign_title')); ?></h2>
+                                    <button type="button" class="modal__close" data-modal-close
+                                            aria-label="<?php echo e(t('action_close')); ?>">&times;</button>
+                                </div>
+                                <div class="modal__body">
+                                    <form method="post"
+                                          action="<?php echo e(BASE_URL); ?>?page=ticket_view&amp;id=<?php echo (int) $ticket['id']; ?>">
+                                        <?php echo Auth::csrfField(); ?>
+                                        <input type="hidden" name="action" value="reassign">
+
+                                        <div class="form-group">
+                                            <label class="form-label" for="agent_id"><?php echo e(t('admin_reassign_label')); ?></label>
+                                            <select class="form-control" id="agent_id" name="agent_id" required>
+                                                <option value=""><?php echo e(t('select_placeholder')); ?></option>
+                                                <?php foreach ($agents as $a): ?>
+                                                    <option value="<?php echo (int) $a['id']; ?>"
+                                                        <?php echo ((int) $ticket['assigned_to'] === (int) $a['id']) ? 'selected' : ''; ?>>
+                                                        <?php echo e($a['full_name']); ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <?php if (!empty($errors['reassign'])): ?>
+                                                <p class="form-error"><?php echo e(t($errors['reassign'])); ?></p>
+                                            <?php endif; ?>
+                                        </div>
+
+                                        <div class="form-actions">
+                                            <button class="btn btn-primary" type="submit"><?php echo e(t('admin_reassign_submit')); ?></button>
+                                            <button class="btn btn-outline" type="button" data-modal-close>
+                                                <?php echo e(t('action_cancel')); ?>
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 <?php endif; ?>
 
                 <div class="card">

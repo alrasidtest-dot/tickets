@@ -28,6 +28,9 @@ $currentPage = isset($_GET['page']) && $_GET['page'] !== '' ? (string) $_GET['pa
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo e($title); ?> — <?php echo e(t('app_name')); ?></title>
     <link rel="stylesheet" href="/assets/css/style.css">
+    <!-- Progressive enhancement flag: marks JS as available before paint so
+         modal forms can be hidden behind their triggers without a flash. -->
+    <script>document.documentElement.classList.add('js');</script>
 </head>
 <body class="lang-<?php echo e($lang); ?>">
 <div class="layout">

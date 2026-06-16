@@ -1169,3 +1169,100 @@ small,
 @media (max-width: 640px) {
     .dash-stats { grid-template-columns: 1fr; }
 }
+
+/* =========================================================================
+   6. Modal dialogs (progressive enhancement)
+   Without JS a form renders inline as a normal card; the <html class="js">
+   flag (set in the document head before paint) switches it into an overlay
+   dialog that is opened on demand. This keeps every form usable with JS off.
+   ========================================================================= */
+
+/* A section heading paired with its add/open-modal button. */
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--spacing-unit) * 2);
+    margin-bottom: calc(var(--spacing-unit) * 3);
+    flex-wrap: wrap;
+}
+.toolbar__title { font-size: 1.25rem; font-weight: 700; }
+.toolbar--end { justify-content: flex-end; }
+
+/* The "open in modal" trigger only makes sense with JS; without it the form
+   shows inline, so the trigger stays hidden. */
+.modal-trigger { display: none; }
+.js .modal-trigger { display: inline-flex; }
+
+/* No-JS fallback: the modal is a plain block whose dialog looks like a card;
+   the backdrop and the close (x) button have no meaning, so they are hidden. */
+.modal { margin-bottom: calc(var(--spacing-unit) * 3); }
+.modal__overlay { display: none; }
+.modal__close { display: none; }
+
+.modal__dialog {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 560px;
+    margin: 0 auto;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+}
+.modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-unit);
+    padding: calc(var(--spacing-unit) * 2) calc(var(--spacing-unit) * 3);
+    border-bottom: 1px solid var(--color-border);
+}
+.modal__title { font-size: 1.05rem; font-weight: 600; }
+.modal__body { padding: calc(var(--spacing-unit) * 3); }
+
+/* JS enabled: turn the modal into a centered overlay dialog. */
+.js .modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    margin: 0;
+    overflow-y: auto;
+    padding: calc(var(--spacing-unit) * 4) calc(var(--spacing-unit) * 2);
+}
+.js .modal.is-open {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+}
+.js .modal__overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(26, 15, 10, .55);
+}
+.js .modal__dialog {
+    margin: auto;
+    box-shadow: 0 12px 40px rgba(26, 15, 10, .28);
+}
+.js .modal__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+}
+.js .modal__close:hover { background: var(--color-primary-light); color: var(--color-text); }
+
+/* Lock background scroll while a modal is open. */
+body.modal-lock { overflow: hidden; }

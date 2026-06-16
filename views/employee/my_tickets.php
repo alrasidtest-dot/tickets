@@ -18,6 +18,12 @@
  */
 $lang = Helpers::lang();
 
+// The new-ticket modal is a convenience shortcut; its form posts to ?page=
+// ticket_new, which owns validation and (on error) re-renders its own page. So
+// here the modal always starts blank — sticky input/errors live on that page.
+$old    = isset($old) && is_array($old) ? $old : ['title' => '', 'description' => '', 'category_id' => '', 'priority_id' => ''];
+$errors = isset($errors) && is_array($errors) ? $errors : [];
+
 // Active filters as a query fragment, reused by the pagination links.
 $filterQuery = http_build_query(array_filter([
     'status_id'   => $filters['status_id']   ?? null,
@@ -36,6 +42,94 @@ require VIEWS_PATH . '/layout/sidebar.php';
                         <?php echo e(t('ticket_created', ['ticket_number' => $createdNumber])); ?>
                     </div>
                 <?php endif; ?>
+
+                <div class="toolbar toolbar--end">
+                    <a class="btn btn-primary" href="<?php echo e(BASE_URL); ?>?page=ticket_new"
+                       data-modal-open="ticketModal">
+                        <?php echo e(t('nav_new_ticket')); ?>
+                    </a>
+                </div>
+
+                <div class="modal" id="ticketModal" role="dialog" aria-modal="true"
+                     aria-labelledby="ticketModalTitle">
+                    <div class="modal__overlay" data-modal-close></div>
+                    <div class="modal__dialog" role="document">
+                        <div class="modal__header">
+                            <h2 class="modal__title" id="ticketModalTitle"><?php echo e(t('ticket_new_title')); ?></h2>
+                            <button type="button" class="modal__close" data-modal-close
+                                    aria-label="<?php echo e(t('action_close')); ?>">&times;</button>
+                        </div>
+                        <div class="modal__body">
+                            <form method="post" action="<?php echo e(BASE_URL); ?>?page=ticket_new" enctype="multipart/form-data">
+                                <?php echo Auth::csrfField(); ?>
+
+                                <div class="form-group">
+                                    <label class="form-label" for="title"><?php echo e(t('label_title')); ?></label>
+                                    <input class="form-control" type="text" id="title" name="title"
+                                           maxlength="200" value="<?php echo e($old['title']); ?>" required>
+                                    <?php if (!empty($errors['title'])): ?>
+                                        <p class="form-error"><?php echo e(t($errors['title'])); ?></p>
+                                    <?php endif; ?>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label" for="category_id"><?php echo e(t('label_category')); ?></label>
+                                    <select class="form-control" id="category_id" name="category_id" required>
+                                        <option value=""><?php echo e(t('select_placeholder')); ?></option>
+                                        <?php foreach ($categories as $c): ?>
+                                            <option value="<?php echo (int) $c['id']; ?>"
+                                                <?php echo (string) $c['id'] === (string) $old['category_id'] ? 'selected' : ''; ?>>
+                                                <?php echo e($lang === 'ar' ? $c['name_ar'] : $c['name_en']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <?php if (!empty($errors['category_id'])): ?>
+                                        <p class="form-error"><?php echo e(t($errors['category_id'])); ?></p>
+                                    <?php endif; ?>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label" for="priority_id"><?php echo e(t('label_priority')); ?></label>
+                                    <select class="form-control" id="priority_id" name="priority_id" required>
+                                        <option value=""><?php echo e(t('select_placeholder')); ?></option>
+                                        <?php foreach ($priorities as $p): ?>
+                                            <?php $pKey = (int) $p['level'] === 1 ? 'priority_urgent'
+                                                : ((int) $p['level'] === 2 ? 'priority_medium' : 'priority_low'); ?>
+                                            <option value="<?php echo (int) $p['id']; ?>"
+                                                <?php echo (string) $p['id'] === (string) $old['priority_id'] ? 'selected' : ''; ?>>
+                                                <?php echo e(t($pKey)); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <?php if (!empty($errors['priority_id'])): ?>
+                                        <p class="form-error"><?php echo e(t($errors['priority_id'])); ?></p>
+                                    <?php endif; ?>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label" for="description"><?php echo e(t('label_description')); ?></label>
+                                    <textarea class="form-control" id="description" name="description" required><?php echo e($old['description']); ?></textarea>
+                                    <?php if (!empty($errors['description'])): ?>
+                                        <p class="form-error"><?php echo e(t($errors['description'])); ?></p>
+                                    <?php endif; ?>
+                                </div>
+
+                                <?php
+                                // Reusable upload field; surface any attachment error inline.
+                                $fileError = $errors['attachment'] ?? null;
+                                require VIEWS_PATH . '/components/file_upload.php';
+                                ?>
+
+                                <div class="form-actions">
+                                    <button class="btn btn-primary" type="submit"><?php echo e(t('ticket_submit')); ?></button>
+                                    <button class="btn btn-outline" type="button" data-modal-close>
+                                        <?php echo e(t('action_cancel')); ?>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="card">
                     <form method="get" action="<?php echo e(BASE_URL); ?>" class="filter-bar">

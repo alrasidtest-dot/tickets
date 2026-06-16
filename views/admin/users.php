@@ -36,6 +36,10 @@ $filterQuery = http_build_query(array_filter([
 ], static function ($v) { return $v !== null && $v !== ''; }));
 $filterSuffix = $filterQuery !== '' ? '&amp;' . str_replace('&', '&amp;', $filterQuery) : '';
 
+// Open the add/edit modal on load when editing a user or when a submit failed
+// validation (the page re-renders in place, no redirect). Presentation only.
+$userModalOpen = $editing || !empty($errors);
+
 require VIEWS_PATH . '/layout/header.php';
 require VIEWS_PATH . '/layout/sidebar.php';
 ?>
@@ -55,101 +59,120 @@ require VIEWS_PATH . '/layout/sidebar.php';
                     <div class="alert alert--danger"><?php echo e(t($errors['form'])); ?></div>
                 <?php endif; ?>
 
-                <div class="card">
-                    <h2 class="card__title">
-                        <?php echo e($editing ? t('admin_user_edit_title') : t('admin_user_add_title')); ?>
-                    </h2>
+                <div class="toolbar toolbar--end">
+                    <button type="button" class="btn btn-primary modal-trigger" data-modal-open="userModal">
+                        <?php echo e(t('admin_user_add_title')); ?>
+                    </button>
+                </div>
 
-                    <form method="post" action="<?php echo e(BASE_URL); ?>?page=admin_users">
-                        <?php echo Auth::csrfField(); ?>
-                        <input type="hidden" name="action" value="<?php echo $editing ? 'update' : 'create'; ?>">
-                        <?php if ($editing): ?>
-                            <input type="hidden" name="id" value="<?php echo e($old['id']); ?>">
-                        <?php endif; ?>
-
-                        <div class="form-group">
-                            <label class="form-label" for="employee_id"><?php echo e(t('label_employee_id')); ?></label>
-                            <input class="form-control" type="text" id="employee_id" name="employee_id"
-                                   maxlength="50" value="<?php echo e($old['employee_id']); ?>"
-                                   <?php echo $editing ? 'readonly' : 'required'; ?>>
-                            <?php if (!empty($errors['employee_id'])): ?>
-                                <p class="form-error"><?php echo e(t($errors['employee_id'])); ?></p>
-                            <?php endif; ?>
+                <div class="modal" id="userModal" role="dialog" aria-modal="true"
+                     aria-labelledby="userModalTitle"<?php echo $userModalOpen ? ' data-open-on-load="1"' : ''; ?>>
+                    <div class="modal__overlay" data-modal-close></div>
+                    <div class="modal__dialog" role="document">
+                        <div class="modal__header">
+                            <h2 class="modal__title" id="userModalTitle">
+                                <?php echo e($editing ? t('admin_user_edit_title') : t('admin_user_add_title')); ?>
+                            </h2>
+                            <button type="button" class="modal__close" data-modal-close
+                                    aria-label="<?php echo e(t('action_close')); ?>">&times;</button>
                         </div>
+                        <div class="modal__body">
+                            <form method="post" action="<?php echo e(BASE_URL); ?>?page=admin_users">
+                                <?php echo Auth::csrfField(); ?>
+                                <input type="hidden" name="action" value="<?php echo $editing ? 'update' : 'create'; ?>">
+                                <?php if ($editing): ?>
+                                    <input type="hidden" name="id" value="<?php echo e($old['id']); ?>">
+                                <?php endif; ?>
 
-                        <div class="form-group">
-                            <label class="form-label" for="full_name"><?php echo e(t('label_full_name')); ?></label>
-                            <input class="form-control" type="text" id="full_name" name="full_name"
-                                   maxlength="100" value="<?php echo e($old['full_name']); ?>" required>
-                            <?php if (!empty($errors['full_name'])): ?>
-                                <p class="form-error"><?php echo e(t($errors['full_name'])); ?></p>
-                            <?php endif; ?>
-                        </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="employee_id"><?php echo e(t('label_employee_id')); ?></label>
+                                    <input class="form-control" type="text" id="employee_id" name="employee_id"
+                                           maxlength="50" value="<?php echo e($old['employee_id']); ?>"
+                                           <?php echo $editing ? 'readonly' : 'required'; ?>>
+                                    <?php if (!empty($errors['employee_id'])): ?>
+                                        <p class="form-error"><?php echo e(t($errors['employee_id'])); ?></p>
+                                    <?php endif; ?>
+                                </div>
 
-                        <div class="form-group">
-                            <label class="form-label" for="email"><?php echo e(t('label_email')); ?></label>
-                            <input class="form-control" type="email" id="email" name="email"
-                                   maxlength="100" value="<?php echo e($old['email']); ?>" required>
-                            <?php if (!empty($errors['email'])): ?>
-                                <p class="form-error"><?php echo e(t($errors['email'])); ?></p>
-                            <?php endif; ?>
-                        </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="full_name"><?php echo e(t('label_full_name')); ?></label>
+                                    <input class="form-control" type="text" id="full_name" name="full_name"
+                                           maxlength="100" value="<?php echo e($old['full_name']); ?>" required>
+                                    <?php if (!empty($errors['full_name'])): ?>
+                                        <p class="form-error"><?php echo e(t($errors['full_name'])); ?></p>
+                                    <?php endif; ?>
+                                </div>
 
-                        <div class="form-group">
-                            <label class="form-label" for="role"><?php echo e(t('label_role')); ?></label>
-                            <select class="form-control" id="role" name="role" required>
-                                <option value=""><?php echo e(t('select_placeholder')); ?></option>
-                                <?php foreach ($roles as $r): ?>
-                                    <option value="<?php echo e($r); ?>"
-                                        <?php echo $old['role'] === $r ? 'selected' : ''; ?>>
-                                        <?php echo e(t('role_' . $r)); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <?php if (!empty($errors['role'])): ?>
-                                <p class="form-error"><?php echo e(t($errors['role'])); ?></p>
-                            <?php endif; ?>
-                        </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="email"><?php echo e(t('label_email')); ?></label>
+                                    <input class="form-control" type="email" id="email" name="email"
+                                           maxlength="100" value="<?php echo e($old['email']); ?>" required>
+                                    <?php if (!empty($errors['email'])): ?>
+                                        <p class="form-error"><?php echo e(t($errors['email'])); ?></p>
+                                    <?php endif; ?>
+                                </div>
 
-                        <div class="form-group">
-                            <label class="form-label" for="department_id"><?php echo e(t('label_department')); ?></label>
-                            <select class="form-control" id="department_id" name="department_id">
-                                <option value=""><?php echo e(t('department_none')); ?></option>
-                                <?php foreach ($departments as $d): ?>
-                                    <option value="<?php echo (int) $d['id']; ?>"
-                                        <?php echo $old['department_id'] === (string) $d['id'] ? 'selected' : ''; ?>>
-                                        <?php echo e($lang === 'ar' ? $d['name_ar'] : $d['name_en']); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <?php if (!empty($errors['department_id'])): ?>
-                                <p class="form-error"><?php echo e(t($errors['department_id'])); ?></p>
-                            <?php endif; ?>
-                        </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="role"><?php echo e(t('label_role')); ?></label>
+                                    <select class="form-control" id="role" name="role" required>
+                                        <option value=""><?php echo e(t('select_placeholder')); ?></option>
+                                        <?php foreach ($roles as $r): ?>
+                                            <option value="<?php echo e($r); ?>"
+                                                <?php echo $old['role'] === $r ? 'selected' : ''; ?>>
+                                                <?php echo e(t('role_' . $r)); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <?php if (!empty($errors['role'])): ?>
+                                        <p class="form-error"><?php echo e(t($errors['role'])); ?></p>
+                                    <?php endif; ?>
+                                </div>
 
-                        <div class="form-group">
-                            <label class="form-label" for="is_active"><?php echo e(t('label_account_status')); ?></label>
-                            <select class="form-control" id="is_active" name="is_active">
-                                <option value="1" <?php echo $old['is_active'] === '1' ? 'selected' : ''; ?>>
-                                    <?php echo e(t('status_active')); ?>
-                                </option>
-                                <option value="0" <?php echo $old['is_active'] === '0' ? 'selected' : ''; ?>>
-                                    <?php echo e(t('status_inactive')); ?>
-                                </option>
-                            </select>
-                        </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="department_id"><?php echo e(t('label_department')); ?></label>
+                                    <select class="form-control" id="department_id" name="department_id">
+                                        <option value=""><?php echo e(t('department_none')); ?></option>
+                                        <?php foreach ($departments as $d): ?>
+                                            <option value="<?php echo (int) $d['id']; ?>"
+                                                <?php echo $old['department_id'] === (string) $d['id'] ? 'selected' : ''; ?>>
+                                                <?php echo e($lang === 'ar' ? $d['name_ar'] : $d['name_en']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <?php if (!empty($errors['department_id'])): ?>
+                                        <p class="form-error"><?php echo e(t($errors['department_id'])); ?></p>
+                                    <?php endif; ?>
+                                </div>
 
-                        <div class="form-actions">
-                            <button class="btn btn-primary" type="submit">
-                                <?php echo e($editing ? t('action_save') : t('admin_user_add')); ?>
-                            </button>
-                            <?php if ($editing): ?>
-                                <a class="btn btn-outline" href="<?php echo e(BASE_URL); ?>?page=admin_users">
-                                    <?php echo e(t('action_cancel')); ?>
-                                </a>
-                            <?php endif; ?>
+                                <div class="form-group">
+                                    <label class="form-label" for="is_active"><?php echo e(t('label_account_status')); ?></label>
+                                    <select class="form-control" id="is_active" name="is_active">
+                                        <option value="1" <?php echo $old['is_active'] === '1' ? 'selected' : ''; ?>>
+                                            <?php echo e(t('status_active')); ?>
+                                        </option>
+                                        <option value="0" <?php echo $old['is_active'] === '0' ? 'selected' : ''; ?>>
+                                            <?php echo e(t('status_inactive')); ?>
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div class="form-actions">
+                                    <button class="btn btn-primary" type="submit">
+                                        <?php echo e($editing ? t('action_save') : t('admin_user_add')); ?>
+                                    </button>
+                                    <?php if ($editing): ?>
+                                        <a class="btn btn-outline" href="<?php echo e(BASE_URL); ?>?page=admin_users">
+                                            <?php echo e(t('action_cancel')); ?>
+                                        </a>
+                                    <?php else: ?>
+                                        <button class="btn btn-outline" type="button" data-modal-close>
+                                            <?php echo e(t('action_cancel')); ?>
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+                            </form>
                         </div>
-                    </form>
+                    </div>
                 </div>
 
                 <div class="card">

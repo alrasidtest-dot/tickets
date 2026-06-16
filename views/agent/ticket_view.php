@@ -131,6 +131,7 @@ require VIEWS_PATH . '/layout/sidebar.php';
                     </div>
                 </div>
 
+                <?php $statusModalOpen = !empty($errors['status']); ?>
                 <div class="card">
                     <h2 class="card__title"><?php echo e(t('agent_actions')); ?></h2>
 
@@ -145,34 +146,58 @@ require VIEWS_PATH . '/layout/sidebar.php';
                             </div>
                         </form>
                     <?php elseif ($canModify): ?>
-                        <form method="post"
-                              action="<?php echo e(BASE_URL); ?>?page=agent_ticket_view&amp;id=<?php echo $ticketId; ?>">
-                            <?php echo Auth::csrfField(); ?>
-                            <input type="hidden" name="action" value="change_status">
-
-                            <div class="form-group">
-                                <label class="form-label" for="status_id"><?php echo e(t('agent_change_status')); ?></label>
-                                <select class="form-control" id="status_id" name="status_id" required>
-                                    <?php foreach ($statuses as $s): ?>
-                                        <option value="<?php echo (int) $s['id']; ?>"
-                                            <?php echo (string) $ticket['status_code'] === (string) $s['code'] ? 'selected' : ''; ?>>
-                                            <?php echo e(t('status_' . $s['code'])); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <?php if (!empty($errors['status'])): ?>
-                                    <p class="form-error"><?php echo e(t($errors['status'])); ?></p>
-                                <?php endif; ?>
-                            </div>
-
-                            <div class="form-actions">
-                                <button class="btn btn-primary" type="submit"><?php echo e(t('agent_status_update')); ?></button>
-                            </div>
-                        </form>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-primary modal-trigger" data-modal-open="statusModal">
+                                <?php echo e(t('agent_change_status')); ?>
+                            </button>
+                        </div>
                     <?php else: ?>
                         <p class="empty-state"><?php echo e(t('agent_not_allowed')); ?></p>
                     <?php endif; ?>
                 </div>
+
+                <?php if ($canModify): ?>
+                    <div class="modal" id="statusModal" role="dialog" aria-modal="true"
+                         aria-labelledby="statusModalTitle"<?php echo $statusModalOpen ? ' data-open-on-load="1"' : ''; ?>>
+                        <div class="modal__overlay" data-modal-close></div>
+                        <div class="modal__dialog" role="document">
+                            <div class="modal__header">
+                                <h2 class="modal__title" id="statusModalTitle"><?php echo e(t('agent_change_status')); ?></h2>
+                                <button type="button" class="modal__close" data-modal-close
+                                        aria-label="<?php echo e(t('action_close')); ?>">&times;</button>
+                            </div>
+                            <div class="modal__body">
+                                <form method="post"
+                                      action="<?php echo e(BASE_URL); ?>?page=agent_ticket_view&amp;id=<?php echo $ticketId; ?>">
+                                    <?php echo Auth::csrfField(); ?>
+                                    <input type="hidden" name="action" value="change_status">
+
+                                    <div class="form-group">
+                                        <label class="form-label" for="status_id"><?php echo e(t('agent_change_status')); ?></label>
+                                        <select class="form-control" id="status_id" name="status_id" required>
+                                            <?php foreach ($statuses as $s): ?>
+                                                <option value="<?php echo (int) $s['id']; ?>"
+                                                    <?php echo (string) $ticket['status_code'] === (string) $s['code'] ? 'selected' : ''; ?>>
+                                                    <?php echo e(t('status_' . $s['code'])); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <?php if (!empty($errors['status'])): ?>
+                                            <p class="form-error"><?php echo e(t($errors['status'])); ?></p>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <div class="form-actions">
+                                        <button class="btn btn-primary" type="submit"><?php echo e(t('agent_status_update')); ?></button>
+                                        <button class="btn btn-outline" type="button" data-modal-close>
+                                            <?php echo e(t('action_cancel')); ?>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
 
                 <div class="card">
                     <h2 class="card__title"><?php echo e(t('comments_title')); ?></h2>
