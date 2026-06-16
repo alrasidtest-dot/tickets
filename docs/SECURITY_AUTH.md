@@ -1,0 +1,35 @@
+# SECURITY_AUTH.md — دورك: Security & Auth Engineer
+
+## المصادقة (LDAP)
+- config/ldap.php يحدد: host, port, base_dn، ومتغير `LDAP_MODE = 'live' | 'mock'`.
+- وضع mock (للتطوير): مصفوفة مستخدمين ثابتة في ldap.php تحاكي استجابة LDAP. أول سطر فيها يجب أن يكون employee_id = 'admin001' (مطابقة لمستخدم admin الأولي في DATABASE.md Seed).
+- بعد نجاح المصادقة: التحقق من وجود employee_id في جدول users — إن لم يوجد، رفض الدخول (لا تسجيل تلقائي).
+
+## الجلسات
+- session_start() مرة واحدة في core/Auth.php، يُستدعى من كل الصفحات.
+- بيانات الجلسة فقط: user_id, role, full_name, lang.
+- مهلة خمول 30 دقيقة → تسجيل خروج تلقائي.
+- session_regenerate_id(true) بعد تسجيل دخول ناجح.
+
+## RBAC Matrix
+| الإجراء | employee | agent | admin |
+|---|---|---|---|
+| إنشاء تذكرة | ✅ | ❌ | ❌ |
+| عرض تذاكره فقط | ✅ | - | - |
+| عرض/معالجة التذاكر المعيّنة | - | ✅ | ✅ |
+| تغيير حالة / تعيين تذكرة | ❌ | ✅ | ✅ |
+| إدارة المستخدمين/الفئات | ❌ | ❌ | ✅ |
+| التقارير الكاملة | ❌ | ❌ | ✅ |
+
+## CSRF
+- توكن CSRF (hidden input) في كل `<form>`، يُخزَّن في الجلسة، يُتحقق منه في كل POST قبل التنفيذ.
+
+## رفع الملفات
+- المسار: uploads/tickets/{ticket_id}/ — الحماية الأساسية: المجلد خارج Document Root (انظر CLAUDE.md)، لا حاجة لـ .htaccess.
+- الامتدادات المسموحة: jpg, jpeg, png, pdf, docx, xlsx — فحص MIME الحقيقي لا الامتداد فقط.
+- الحجم الأقصى: 5MB، إعادة تسمية الملف عشوائيًا (uniqid) عند الحفظ.
+- التحميل: عبر `index.php?page=download&id={attachment_id}` فقط بعد فحص صلاحية المستخدم على التذكرة المرتبطة — ممنوع روابط مباشرة لمسار الملف.
+
+## عام
+- كل مدخل من $_GET/$_POST يُعامل untrusted، htmlspecialchars() عند العرض (منع XSS).
+- رسائل الخطأ للمستخدم عامة دائمًا، التفاصيل التقنية في error_log فقط.
