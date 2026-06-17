@@ -79,6 +79,25 @@ class Helpers
     }
 
     /**
+     * Resolve the brand logo's public URL, tolerating whichever image format
+     * was dropped into public/assets/img/. Preferred formats (smaller / vector)
+     * are checked first. Returns null when no logo file is present, so the
+     * views can fall back to the bank name as text.
+     *
+     * @return string|null web path under the document root, e.g. /assets/img/logo.webp
+     */
+    public static function logoUrl()
+    {
+        $dir = BASE_PATH . '/public/assets/img';
+        foreach (['logo.svg', 'logo.webp', 'logo.png', 'logo.jpg', 'logo.jpeg'] as $name) {
+            if (is_file($dir . '/' . $name)) {
+                return '/assets/img/' . $name;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Load (and cache) the translation dictionary for a language.
      *
      * @param string $lang
@@ -128,4 +147,14 @@ function e($value)
 function formatDate($value)
 {
     return Helpers::formatDate($value);
+}
+
+/**
+ * Global shorthand for Helpers::logoUrl() (brand logo path or null).
+ *
+ * @return string|null
+ */
+function logoUrl()
+{
+    return Helpers::logoUrl();
 }

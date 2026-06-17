@@ -42,9 +42,9 @@ $items = array_merge($nav['dashboard'], $nav[$role] ?? []);
 ?>
         <aside class="sidebar" id="sidebar">
             <div class="sidebar__brand">
-                <?php if (is_file(BASE_PATH . '/public/assets/img/logo.webp')): ?>
+                <?php if (($logo = logoUrl()) !== null): ?>
                     <span class="sidebar__logo-box">
-                        <img class="sidebar__logo" src="/assets/img/logo.webp"
+                        <img class="sidebar__logo" src="<?php echo e($logo); ?>"
                              alt="<?php echo e(t('bank_name')); ?>">
                     </span>
                 <?php else: ?>
@@ -61,6 +61,11 @@ $items = array_merge($nav['dashboard'], $nav[$role] ?? []);
                     </a>
                 <?php endforeach; ?>
             </nav>
+
+            <div class="sidebar__footer">
+                <span class="sidebar__status-dot" aria-hidden="true"></span>
+                <span><?php echo e(t('sidebar_secure_env')); ?></span>
+            </div>
         </aside>
 
         <div class="sidebar-overlay" id="sidebarOverlay"></div>

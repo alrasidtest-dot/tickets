@@ -243,7 +243,8 @@ return [
     'report_overdue_by'       => 'التأخر (ساعة)',
 
     // Rebrand phase — bank identity & role-aware dashboard
-    'bank_name'               => 'البنك الأهلي السوداني',
+    'bank_name'               => 'البنك الأهلي المصري (الخرطوم)',
+    'sidebar_secure_env'      => 'بيئة داخلية آمنة · Intranet',
     'dash_total'              => 'إجمالي التذاكر',
     'dash_open'               => 'التذاكر المفتوحة',
     'dash_in_progress'        => 'قيد المعالجة',

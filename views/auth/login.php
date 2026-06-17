@@ -25,8 +25,8 @@ $dir  = $lang === 'ar' ? 'rtl' : 'ltr';
     <div class="auth-page">
         <div class="auth-card">
             <div class="auth-card__brand">
-                <?php if (is_file(BASE_PATH . '/public/assets/img/logo.webp')): ?>
-                    <img class="auth-card__logo" src="/assets/img/logo.webp"
+                <?php if (($logo = logoUrl()) !== null): ?>
+                    <img class="auth-card__logo" src="<?php echo e($logo); ?>"
                          alt="<?php echo e(t('bank_name')); ?>">
                 <?php else: ?>
                     <span class="auth-card__brand-name"><?php echo e(t('bank_name')); ?></span>

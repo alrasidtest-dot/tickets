@@ -243,7 +243,8 @@ return [
     'report_overdue_by'       => 'Overdue by (h)',
 
     // Rebrand phase — bank identity & role-aware dashboard
-    'bank_name'               => 'Sudanese National Bank',
+    'bank_name'               => 'National Bank of Egypt (Khartoum)',
+    'sidebar_secure_env'      => 'Secure internal network · Intranet',
     'dash_total'              => 'Total tickets',
     'dash_open'               => 'Open tickets',
     'dash_in_progress'        => 'In progress',
