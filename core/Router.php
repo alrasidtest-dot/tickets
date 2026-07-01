@@ -31,9 +31,15 @@ class Router
         'agent_dashboard'   => ['AgentController', 'dashboard'],
         'agent_ticket_view' => ['AgentController', 'viewTicket'],
 
+        // Phase 11 — department manager: department queue + ticket processing.
+        'manager_dashboard'   => ['ManagerController', 'dashboard'],
+        'manager_ticket_view' => ['ManagerController', 'viewTicket'],
+
         // Phase 7 — admin: user management & category/priority management.
         'admin_users'      => ['AdminController', 'users'],
         'admin_categories' => ['AdminController', 'categories'],
+        // Phase 11 — admin: department management (needed to route categories).
+        'admin_departments' => ['AdminController', 'departments'],
         // Admin: all-tickets overview (status/category/priority/agent filters).
         'admin_tickets'    => ['AdminController', 'tickets'],
 

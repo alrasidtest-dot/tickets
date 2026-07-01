@@ -99,6 +99,22 @@ require VIEWS_PATH . '/layout/sidebar.php';
                                     <?php endif; ?>
                                 </div>
 
+                                <div class="form-group">
+                                    <label class="form-label" for="cat_department_id"><?php echo e(t('label_department')); ?></label>
+                                    <select class="form-control" id="cat_department_id" name="department_id">
+                                        <option value=""><?php echo e(t('department_none')); ?></option>
+                                        <?php foreach ($departments as $d): ?>
+                                            <option value="<?php echo (int) $d['id']; ?>"
+                                                <?php echo $catOld['department_id'] === (string) $d['id'] ? 'selected' : ''; ?>>
+                                                <?php echo e($lang === 'ar' ? $d['name_ar'] : $d['name_en']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <?php if (!$editPri && !empty($errors['department_id'])): ?>
+                                        <p class="form-error"><?php echo e(t($errors['department_id'])); ?></p>
+                                    <?php endif; ?>
+                                </div>
+
                                 <div class="form-actions">
                                     <button class="btn btn-primary" type="submit">
                                         <?php echo e($editCat ? t('action_save') : t('admin_category_add')); ?>
@@ -123,13 +139,14 @@ require VIEWS_PATH . '/layout/sidebar.php';
                         <p class="empty-state"><?php echo e(t('no_results')); ?></p>
                     <?php else: ?>
                         <div class="table-wrap">
-                            <table class="table">
+                            <table class="table" data-enhance>
                                 <thead>
                                     <tr>
                                         <th><?php echo e(t('label_name_ar')); ?></th>
                                         <th><?php echo e(t('label_name_en')); ?></th>
+                                        <th><?php echo e(t('label_department')); ?></th>
                                         <th><?php echo e(t('label_status')); ?></th>
-                                        <th><?php echo e(t('label_actions')); ?></th>
+                                        <th data-no-sort><?php echo e(t('label_actions')); ?></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -138,6 +155,15 @@ require VIEWS_PATH . '/layout/sidebar.php';
                                         <tr>
                                             <td><?php echo e($c['name_ar']); ?></td>
                                             <td><?php echo e($c['name_en']); ?></td>
+                                            <td>
+                                                <?php
+                                                if ($c['department_id'] === null) {
+                                                    echo e(t('department_none'));
+                                                } else {
+                                                    echo e($lang === 'ar' ? $c['department_name_ar'] : $c['department_name_en']);
+                                                }
+                                                ?>
+                                            </td>
                                             <td>
                                                 <span class="badge <?php echo $isActive ? 'badge--success' : 'badge--muted'; ?>">
                                                     <?php echo e($isActive ? t('status_active') : t('status_inactive')); ?>
@@ -262,7 +288,7 @@ require VIEWS_PATH . '/layout/sidebar.php';
                         <p class="empty-state"><?php echo e(t('no_results')); ?></p>
                     <?php else: ?>
                         <div class="table-wrap">
-                            <table class="table">
+                            <table class="table" data-enhance>
                                 <thead>
                                     <tr>
                                         <th><?php echo e(t('label_name_ar')); ?></th>
@@ -270,7 +296,7 @@ require VIEWS_PATH . '/layout/sidebar.php';
                                         <th><?php echo e(t('label_level')); ?></th>
                                         <th><?php echo e(t('label_sla_hours')); ?></th>
                                         <th><?php echo e(t('label_status')); ?></th>
-                                        <th><?php echo e(t('label_actions')); ?></th>
+                                        <th data-no-sort><?php echo e(t('label_actions')); ?></th>
                                     </tr>
                                 </thead>
                                 <tbody>

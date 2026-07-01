@@ -21,7 +21,8 @@ it-helpdesk/
 │   ├── AuthController.php
 │   ├── TicketController.php   # إنشاء/عرض تذاكر الموظف
 │   ├── AgentController.php    # لوحة الفني
-│   ├── AdminController.php    # لوحة الإدارة
+│   ├── ManagerController.php  # لوحة مدير القسم (تذاكر قسمه + الإسناد لفنّيي قسمه)
+│   ├── AdminController.php    # لوحة الإدارة (تشمل إدارة الأقسام)
 │   └── ReportController.php   # التقارير والإحصائيات
 ├── views/
 │   ├── layout/
@@ -32,14 +33,17 @@ it-helpdesk/
 │   ├── auth/login.php
 │   ├── employee/           # new_ticket.php, my_tickets.php, ticket_view.php
 │   ├── agent/               # dashboard.php, ticket_view.php
-│   └── admin/                # users.php, categories.php, reports.php
+│   ├── manager/             # dashboard.php, ticket_view.php (مدير القسم)
+│   └── admin/                # users.php, departments.php, categories.php, reports.php
 ├── lang/
 │   ├── ar.php
 │   └── en.php
 ├── uploads/
 │   └── tickets/             # مرفقات لكل تذكرة، خارج public/، تُعرض عبر index.php?page=download
 ├── database/
-│   └── schema.sql            # سكربت إنشاء الجداول + seed
+│   ├── schema.sql            # سكربت إنشاء الجداول + seed
+│   ├── seed_demo.php         # بيانات عرض تجريبية (CLI)
+│   └── migrations/           # سكربتات ALTER لقواعد بيانات قائمة (مثل إضافة دور مدير القسم)
 ├── public/
 │   ├── index.php             # نقطة الدخول الوحيدة + التوجيه (?page=)
 │   └── assets/

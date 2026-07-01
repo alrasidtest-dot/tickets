@@ -73,16 +73,18 @@ class AuthController
      */
     public function dashboard()
     {
-        Auth::requireAny(['employee', 'agent', 'admin']);
+        Auth::requireAny(['employee', 'agent', 'manager', 'admin']);
 
         require_once MODELS_PATH . '/Ticket.php';
 
         $userId   = Auth::id();
         $role     = Auth::role();
         $fullName = Auth::fullName();
+        $deptId   = Auth::departmentId();
 
-        // Role-aware summary figures for the dashboard stat cards.
-        $stats = Ticket::dashboardStats($userId, $role);
+        // Role-aware summary figures for the dashboard stat cards. Managers pass
+        // their department id so the figures are department-scoped.
+        $stats = Ticket::dashboardStats($userId, $role, $deptId);
 
         // Status list (id + code) so the view can deep-link single-status cards
         // to the matching list page with a pre-applied status_id filter.
@@ -94,6 +96,8 @@ class AuthController
             $recent = Ticket::findByCreator($userId, [], 5, 0);
         } elseif ($role === 'agent') {
             $recent = Ticket::findForAgent($userId, [], 5, 0);
+        } elseif ($role === 'manager') {
+            $recent = $deptId !== null ? Ticket::findForManager($deptId, [], 5, 0) : [];
         } else {
             $recent = Ticket::findAll([], 5, 0);
         }

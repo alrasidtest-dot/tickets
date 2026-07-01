@@ -242,7 +242,12 @@ class Ticket
     public static function categoriesAll()
     {
         $stmt = Database::connection()->prepare(
-            'SELECT id, name_ar, name_en, is_active FROM ticket_categories ORDER BY id'
+            'SELECT c.id, c.name_ar, c.name_en, c.department_id, c.is_active,
+                    d.name_ar AS department_name_ar,
+                    d.name_en AS department_name_en
+             FROM ticket_categories c
+             LEFT JOIN departments d ON d.id = c.department_id
+             ORDER BY c.id'
         );
         $stmt->execute();
 
@@ -266,21 +271,23 @@ class Ticket
     }
 
     /**
-     * Create a ticket category (active by default).
+     * Create a ticket category (active by default) owned by a department.
      *
-     * @param array{name_ar:string,name_en:string} $data
+     * @param array{name_ar:string,name_en:string,department_id:?int} $data
      * @return int|null The new category id, or null on failure.
      */
     public static function categoryCreate(array $data)
     {
         try {
             $stmt = Database::connection()->prepare(
-                'INSERT INTO ticket_categories (name_ar, name_en, is_active)
-                 VALUES (:name_ar, :name_en, 1)'
+                'INSERT INTO ticket_categories (name_ar, name_en, department_id, is_active)
+                 VALUES (:name_ar, :name_en, :department_id, 1)'
             );
             $stmt->execute([
-                ':name_ar' => (string) $data['name_ar'],
-                ':name_en' => (string) $data['name_en'],
+                ':name_ar'       => (string) $data['name_ar'],
+                ':name_en'       => (string) $data['name_en'],
+                ':department_id' => isset($data['department_id']) && $data['department_id'] !== null
+                    ? (int) $data['department_id'] : null,
             ]);
 
             return (int) Database::connection()->lastInsertId();
@@ -291,23 +298,27 @@ class Ticket
     }
 
     /**
-     * Update a category's names (its active flag is toggled separately).
+     * Update a category's names and owning department (its active flag is
+     * toggled separately).
      *
-     * @param int                                   $id
-     * @param array{name_ar:string,name_en:string}  $data
+     * @param int                                                     $id
+     * @param array{name_ar:string,name_en:string,department_id:?int} $data
      * @return bool
      */
     public static function categoryUpdate($id, array $data)
     {
         try {
             $stmt = Database::connection()->prepare(
-                'UPDATE ticket_categories SET name_ar = :name_ar, name_en = :name_en
+                'UPDATE ticket_categories
+                    SET name_ar = :name_ar, name_en = :name_en, department_id = :department_id
                  WHERE id = :id'
             );
             $stmt->execute([
-                ':name_ar' => (string) $data['name_ar'],
-                ':name_en' => (string) $data['name_en'],
-                ':id'      => (int) $id,
+                ':name_ar'       => (string) $data['name_ar'],
+                ':name_en'       => (string) $data['name_en'],
+                ':department_id' => isset($data['department_id']) && $data['department_id'] !== null
+                    ? (int) $data['department_id'] : null,
+                ':id'            => (int) $id,
             ]);
 
             return true;
@@ -439,6 +450,7 @@ class Ticket
                     p.level AS priority_level,
                     c.name_ar AS category_name_ar,
                     c.name_en AS category_name_en,
+                    c.department_id AS category_department_id,
                     cu.full_name AS creator_name,
                     au.full_name AS assignee_name
              FROM tickets t
@@ -457,11 +469,11 @@ class Ticket
     }
 
     /**
-     * Tickets visible to an agent: the ones assigned to them plus every
-     * unassigned ticket (which they may claim) — docs/BACKEND_GUIDE.md. Newest
-     * unassigned tickets surface first (so they can be picked up), then by
-     * priority and recency. Supports the same status/category/priority filters
-     * and LIMIT/OFFSET pagination as the employee list.
+     * Tickets visible to a technician (agent): only the ones assigned to them.
+     * Technicians no longer self-claim — assignment is top-down from an admin or
+     * a department manager (docs/SECURITY_AUTH.md). Ordered by priority then
+     * recency. Supports the same status/category/priority filters and
+     * LIMIT/OFFSET pagination as the employee list.
      *
      * @param int                                                     $agentId
      * @param array{status_id?:int,category_id?:int,priority_id?:int} $filters
@@ -486,7 +498,7 @@ class Ticket
                 JOIN ticket_categories c  ON c.id  = t.category_id
                 JOIN users             cu ON cu.id = t.created_by
                 ' . $where . '
-                ORDER BY (t.assigned_to IS NULL) DESC, p.level ASC, t.created_at DESC, t.id DESC
+                ORDER BY p.level ASC, t.created_at DESC, t.id DESC
                 LIMIT :limit OFFSET :offset';
 
         $stmt = Database::connection()->prepare($sql);
@@ -513,6 +525,75 @@ class Ticket
         [$where, $params] = self::buildAgentFilter((int) $agentId, $filters);
 
         $stmt = Database::connection()->prepare('SELECT COUNT(*) FROM tickets t ' . $where);
+        $stmt->execute($params);
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    // ---- Manager: department queue ----------------------------------------
+
+    /**
+     * Tickets in a department manager's scope: every ticket whose category
+     * belongs to the manager's department (docs/SECURITY_AUTH.md), regardless of
+     * which technician it is assigned to. Unassigned tickets surface first (they
+     * still need dispatching), then by priority and recency. Supports the same
+     * status/category/priority filters and LIMIT/OFFSET pagination.
+     *
+     * @param int                                                     $departmentId
+     * @param array{status_id?:int,category_id?:int,priority_id?:int} $filters
+     * @param int                                                     $limit
+     * @param int                                                     $offset
+     * @return array<int,array<string,mixed>>
+     */
+    public static function findForManager($departmentId, array $filters = [], $limit = 15, $offset = 0)
+    {
+        [$where, $params] = self::buildManagerFilter((int) $departmentId, $filters);
+
+        $sql = 'SELECT t.id, t.ticket_number, t.title, t.created_at, t.updated_at, t.assigned_to,
+                       s.code  AS status_code,
+                       p.level AS priority_level,
+                       c.name_ar AS category_name_ar,
+                       c.name_en AS category_name_en,
+                       cu.full_name AS creator_name,
+                       au.full_name AS assignee_name,
+                       EXISTS (SELECT 1 FROM ticket_attachments a WHERE a.ticket_id = t.id) AS has_attachment
+                FROM tickets t
+                JOIN ticket_statuses   s  ON s.id  = t.status_id
+                JOIN ticket_priorities p  ON p.id  = t.priority_id
+                JOIN ticket_categories c  ON c.id  = t.category_id
+                JOIN users             cu ON cu.id = t.created_by
+                LEFT JOIN users        au ON au.id = t.assigned_to
+                ' . $where . '
+                ORDER BY (t.assigned_to IS NULL) DESC, p.level ASC, t.created_at DESC, t.id DESC
+                LIMIT :limit OFFSET :offset';
+
+        $stmt = Database::connection()->prepare($sql);
+        foreach ($params as $name => $value) {
+            $stmt->bindValue($name, $value, PDO::PARAM_INT);
+        }
+        $stmt->bindValue(':limit', (int) $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', (int) $offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Count of tickets in a manager's department scope (same scope/filters as
+     * findForManager), used for pagination.
+     *
+     * @param int                                                     $departmentId
+     * @param array{status_id?:int,category_id?:int,priority_id?:int} $filters
+     * @return int
+     */
+    public static function countForManager($departmentId, array $filters = [])
+    {
+        [$where, $params] = self::buildManagerFilter((int) $departmentId, $filters);
+
+        $stmt = Database::connection()->prepare(
+            'SELECT COUNT(*) FROM tickets t
+             JOIN ticket_categories c ON c.id = t.category_id ' . $where
+        );
         $stmt->execute($params);
 
         return (int) $stmt->fetchColumn();
@@ -742,23 +823,29 @@ class Ticket
     }
 
     /**
-     * Whether a user may modify a ticket (change its status / assignment),
-     * following docs/BACKEND_GUIDE.md:
-     *   - admin : any ticket;
-     *   - agent : only tickets currently assigned to them (an unassigned ticket
-     *             must be claimed first);
+     * Whether a user may modify a ticket (change its status / assign it),
+     * following the assignment hierarchy in docs/SECURITY_AUTH.md:
+     *   - admin    : any ticket;
+     *   - manager  : tickets whose category belongs to their department (they
+     *                dispatch to their technicians and may process the ticket);
+     *   - agent    : only tickets currently assigned to them (technicians no
+     *                longer self-claim — assignment is top-down);
      *   - employee : never.
      *
-     * @param array<string,mixed> $ticket A row from findDetailById.
+     * @param array<string,mixed> $ticket       A row from findDetailById.
      * @param int                 $userId
      * @param string              $role
+     * @param int|null            $departmentId The acting user's department (for
+     *                                          the manager scope), or null.
      * @return bool
      */
-    public static function canModify(array $ticket, $userId, $role)
+    public static function canModify(array $ticket, $userId, $role, $departmentId = null)
     {
         switch ($role) {
             case 'admin':
                 return true;
+            case 'manager':
+                return self::inManagerScope($ticket, $departmentId);
             case 'agent':
                 return $ticket['assigned_to'] !== null
                     && (int) $ticket['assigned_to'] === (int) $userId;
@@ -771,28 +858,49 @@ class Ticket
      * Whether a user may access a ticket (view its detail / download its
      * attachments), following the RBAC matrix in docs/SECURITY_AUTH.md:
      *   - admin    : every ticket;
-     *   - agent    : tickets assigned to them, plus unassigned ones (which they
-     *                may claim);
+     *   - manager  : tickets whose category belongs to their department;
+     *   - agent    : only tickets assigned to them;
      *   - employee : only the tickets they created.
      *
-     * @param array<string,mixed> $ticket A row from findDetailById.
+     * @param array<string,mixed> $ticket       A row from findDetailById.
      * @param int                 $userId
      * @param string              $role
+     * @param int|null            $departmentId The acting user's department (for
+     *                                          the manager scope), or null.
      * @return bool
      */
-    public static function canAccess(array $ticket, $userId, $role)
+    public static function canAccess(array $ticket, $userId, $role, $departmentId = null)
     {
         switch ($role) {
             case 'admin':
                 return true;
+            case 'manager':
+                return self::inManagerScope($ticket, $departmentId);
             case 'agent':
-                return $ticket['assigned_to'] === null
-                    || (int) $ticket['assigned_to'] === (int) $userId;
+                return $ticket['assigned_to'] !== null
+                    && (int) $ticket['assigned_to'] === (int) $userId;
             case 'employee':
                 return (int) $ticket['created_by'] === (int) $userId;
             default:
                 return false;
         }
+    }
+
+    /**
+     * Whether a ticket falls inside a manager's department scope: the ticket's
+     * category must belong to the manager's department. Requires the
+     * category_department_id column (selected by findDetailById).
+     *
+     * @param array<string,mixed> $ticket
+     * @param int|null            $departmentId
+     * @return bool
+     */
+    private static function inManagerScope(array $ticket, $departmentId)
+    {
+        return $departmentId !== null
+            && isset($ticket['category_department_id'])
+            && $ticket['category_department_id'] !== null
+            && (int) $ticket['category_department_id'] === (int) $departmentId;
     }
 
     // ---- Admin: reports & statistics (phase 9) -----------------------------
@@ -951,14 +1059,17 @@ class Ticket
      * ("open" = status NOT IN ('resolved','closed')).
      *
      *   employee → total, open, in_progress, resolved (own tickets only)
-     *   agent    → assigned_to_me, unassigned, in_progress (mine), overdue (mine)
+     *   agent    → assigned_to_me, in_progress (mine), resolved (mine), overdue (mine)
+     *   manager  → total, open, unassigned, overdue (department scope)
      *   admin    → total, open, overdue, avg_resolution_hours
      *
-     * @param int    $userId
-     * @param string $role
+     * @param int      $userId
+     * @param string   $role
+     * @param int|null $extra  role-specific context: the manager's department id
+     *                         (ignored for other roles).
      * @return array<string,int|float>
      */
-    public static function dashboardStats($userId, $role)
+    public static function dashboardStats($userId, $role, $extra = null)
     {
         $db = Database::connection();
 
@@ -985,15 +1096,18 @@ class Ticket
         }
 
         if ($role === 'agent') {
-            // EMULATE_PREPARES is off, so every placeholder must be distinct
-            // even when it carries the same agent id.
+            // Technician cards are all scoped to tickets assigned to them (no
+            // unassigned pool — technicians do not self-claim). EMULATE_PREPARES
+            // is off, so every placeholder must be distinct even when it carries
+            // the same agent id.
             $stmt = $db->prepare(
                 "SELECT
                     SUM(CASE WHEN t.assigned_to = :uid_a THEN 1 ELSE 0 END) AS assigned_to_me,
-                    SUM(CASE WHEN t.assigned_to IS NULL THEN 1 ELSE 0 END) AS unassigned,
                     SUM(CASE WHEN t.assigned_to = :uid_b AND s.code = 'in_progress'
                              THEN 1 ELSE 0 END) AS in_progress,
-                    SUM(CASE WHEN t.assigned_to = :uid_c
+                    SUM(CASE WHEN t.assigned_to = :uid_c AND s.code = 'resolved'
+                             THEN 1 ELSE 0 END) AS resolved,
+                    SUM(CASE WHEN t.assigned_to = :uid_d
                               AND s.code NOT IN ('resolved','closed')
                               AND TIMESTAMPDIFF(HOUR, t.created_at, NOW()) > p.sla_hours
                              THEN 1 ELSE 0 END) AS overdue
@@ -1005,14 +1119,44 @@ class Ticket
                 ':uid_a' => (int) $userId,
                 ':uid_b' => (int) $userId,
                 ':uid_c' => (int) $userId,
+                ':uid_d' => (int) $userId,
             ]);
             $row = $stmt->fetch() ?: [];
 
             return [
                 'assigned_to_me' => (int) ($row['assigned_to_me'] ?? 0),
-                'unassigned'     => (int) ($row['unassigned'] ?? 0),
                 'in_progress'    => (int) ($row['in_progress'] ?? 0),
+                'resolved'       => (int) ($row['resolved'] ?? 0),
                 'overdue'        => (int) ($row['overdue'] ?? 0),
+            ];
+        }
+
+        if ($role === 'manager') {
+            // Department scope: every ticket whose category belongs to the
+            // manager's department. A manager with no department sees zeros.
+            $deptId = $extra !== null ? (int) $extra : 0;
+            $stmt = $db->prepare(
+                "SELECT
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN s.code NOT IN ('resolved','closed') THEN 1 ELSE 0 END) AS open_count,
+                    SUM(CASE WHEN t.assigned_to IS NULL THEN 1 ELSE 0 END) AS unassigned,
+                    SUM(CASE WHEN s.code NOT IN ('resolved','closed')
+                              AND TIMESTAMPDIFF(HOUR, t.created_at, NOW()) > p.sla_hours
+                             THEN 1 ELSE 0 END) AS overdue
+                 FROM tickets t
+                 JOIN ticket_statuses   s ON s.id = t.status_id
+                 JOIN ticket_priorities p ON p.id = t.priority_id
+                 JOIN ticket_categories c ON c.id = t.category_id
+                 WHERE c.department_id = :dept_id"
+            );
+            $stmt->execute([':dept_id' => $deptId]);
+            $row = $stmt->fetch() ?: [];
+
+            return [
+                'total'      => (int) ($row['total'] ?? 0),
+                'open'       => (int) ($row['open_count'] ?? 0),
+                'unassigned' => (int) ($row['unassigned'] ?? 0),
+                'overdue'    => (int) ($row['overdue'] ?? 0),
             ];
         }
 
@@ -1074,9 +1218,9 @@ class Ticket
     }
 
     /**
-     * Build the shared WHERE clause + bound params for the agent queries:
-     * tickets assigned to the agent plus all unassigned ones, with the optional
-     * status/category/priority filters.
+     * Build the shared WHERE clause + bound params for the technician queries:
+     * only tickets assigned to the agent (no unassigned pool — technicians do
+     * not self-claim), with the optional status/category/priority filters.
      *
      * @param int                                                     $agentId
      * @param array{status_id?:int,category_id?:int,priority_id?:int} $filters
@@ -1084,8 +1228,39 @@ class Ticket
      */
     private static function buildAgentFilter($agentId, array $filters)
     {
-        $clauses = ['(t.assigned_to = :agent_id OR t.assigned_to IS NULL)'];
+        $clauses = ['t.assigned_to = :agent_id'];
         $params  = [':agent_id' => (int) $agentId];
+
+        if (!empty($filters['status_id'])) {
+            $clauses[] = 't.status_id = :status_id';
+            $params[':status_id'] = (int) $filters['status_id'];
+        }
+        if (!empty($filters['category_id'])) {
+            $clauses[] = 't.category_id = :category_id';
+            $params[':category_id'] = (int) $filters['category_id'];
+        }
+        if (!empty($filters['priority_id'])) {
+            $clauses[] = 't.priority_id = :priority_id';
+            $params[':priority_id'] = (int) $filters['priority_id'];
+        }
+
+        return ['WHERE ' . implode(' AND ', $clauses), $params];
+    }
+
+    /**
+     * Build the shared WHERE clause + bound params for the manager queries:
+     * every ticket whose category belongs to the manager's department, with the
+     * optional status/category/priority filters. The caller must join
+     * ticket_categories AS c (findForManager / countForManager both do).
+     *
+     * @param int                                                     $departmentId
+     * @param array{status_id?:int,category_id?:int,priority_id?:int} $filters
+     * @return array{0:string,1:array<string,int>}
+     */
+    private static function buildManagerFilter($departmentId, array $filters)
+    {
+        $clauses = ['c.department_id = :dept_id'];
+        $params  = [':dept_id' => (int) $departmentId];
 
         if (!empty($filters['status_id'])) {
             $clauses[] = 't.status_id = :status_id';

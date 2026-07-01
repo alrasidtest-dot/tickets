@@ -21,11 +21,16 @@ require_once MODELS_PATH . '/Ticket.php';
 
 class AdminController
 {
-    /** Rows shown per page in the user list. */
-    const PER_PAGE = 20;
+    /**
+     * Rows loaded per page. The admin list tables are enhanced on the client
+     * with live search / column sort / pagination (assets/js/app.js); we send a
+     * generous slice and let the browser paginate it. The LIMIT stays as a
+     * safety cap and no-JS fallback.
+     */
+    const PER_PAGE = 100;
 
-    /** The roles an admin may assign to a user. */
-    private static $roles = ['employee', 'agent', 'admin'];
+    /** The roles an admin may assign to a user (top-down hierarchy order). */
+    private static $roles = ['employee', 'agent', 'manager', 'admin'];
 
     /**
      * User management: list users (with role/active filters + pagination) and
@@ -152,8 +157,10 @@ class AdminController
     {
         Auth::require('admin');
 
+        $departments = User::departments();
+
         $errors  = [];
-        $catOld  = ['id' => '', 'name_ar' => '', 'name_en' => ''];
+        $catOld  = ['id' => '', 'name_ar' => '', 'name_en' => '', 'department_id' => ''];
         $priOld  = ['id' => '', 'name_ar' => '', 'name_en' => '', 'level' => '', 'sla_hours' => ''];
         $editCat = false;
         $editPri = false;
@@ -166,16 +173,28 @@ class AdminController
 
                 if ($action === 'cat_create' || $action === 'cat_update') {
                     $editCat = $action === 'cat_update';
-                    $catOld['id']      = (string) ($_POST['id'] ?? '');
-                    $catOld['name_ar'] = trim((string) ($_POST['name_ar'] ?? ''));
-                    $catOld['name_en'] = trim((string) ($_POST['name_en'] ?? ''));
+                    $catOld['id']            = (string) ($_POST['id'] ?? '');
+                    $catOld['name_ar']       = trim((string) ($_POST['name_ar'] ?? ''));
+                    $catOld['name_en']       = trim((string) ($_POST['name_en'] ?? ''));
+                    $catOld['department_id'] = (string) ($_POST['department_id'] ?? '');
 
                     if ($this->validateNames($catOld, $errors)) {
+                        // Department is optional; when supplied it must be real.
+                        if ($catOld['department_id'] !== '' && !$this->idIn($catOld['department_id'], $departments)) {
+                            $errors['department_id'] = 'required_field';
+                        }
+                    }
+                    if (!$errors) {
+                        $payload = [
+                            'name_ar'       => $catOld['name_ar'],
+                            'name_en'       => $catOld['name_en'],
+                            'department_id' => $catOld['department_id'] === '' ? null : (int) $catOld['department_id'],
+                        ];
                         if ($action === 'cat_create') {
-                            $ok = Ticket::categoryCreate($catOld) !== null;
+                            $ok = Ticket::categoryCreate($payload) !== null;
                         } else {
                             $id = ctype_digit($catOld['id']) ? (int) $catOld['id'] : 0;
-                            $ok = $id > 0 && Ticket::categoryUpdate($id, $catOld);
+                            $ok = $id > 0 && Ticket::categoryUpdate($id, $payload);
                         }
                         if ($ok) {
                             $this->redirect('?page=admin_categories&saved=category');
@@ -231,9 +250,10 @@ class AdminController
                     if ((int) $c['id'] === (int) $_GET['edit_cat']) {
                         $editCat = true;
                         $catOld = [
-                            'id'      => (string) $c['id'],
-                            'name_ar' => (string) $c['name_ar'],
-                            'name_en' => (string) $c['name_en'],
+                            'id'            => (string) $c['id'],
+                            'name_ar'       => (string) $c['name_ar'],
+                            'name_en'       => (string) $c['name_en'],
+                            'department_id' => $c['department_id'] !== null ? (string) $c['department_id'] : '',
                         ];
                         break;
                     }
@@ -265,6 +285,69 @@ class AdminController
     }
 
     /**
+     * Department management: list departments and an add/edit form. Departments
+     * are the backbone of the manager routing model (categories belong to a
+     * department; managers/technicians belong to a department), so the admin
+     * needs to create and rename them here. POST dispatches on 'action'
+     * (dept_create / dept_update) then redirects (PRG).
+     *
+     * @return void
+     */
+    public function departments()
+    {
+        Auth::require('admin');
+
+        $errors  = [];
+        $deptOld = ['id' => '', 'name_ar' => '', 'name_en' => ''];
+        $editing = false;
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (!Auth::csrfVerify($_POST['csrf_token'] ?? null)) {
+                $errors['form'] = 'login_csrf_error';
+            } else {
+                $action = (string) ($_POST['action'] ?? '');
+
+                if ($action === 'dept_create' || $action === 'dept_update') {
+                    $editing = $action === 'dept_update';
+                    $deptOld['id']      = (string) ($_POST['id'] ?? '');
+                    $deptOld['name_ar'] = trim((string) ($_POST['name_ar'] ?? ''));
+                    $deptOld['name_en'] = trim((string) ($_POST['name_en'] ?? ''));
+
+                    if ($this->validateNames($deptOld, $errors)) {
+                        if ($action === 'dept_create') {
+                            $ok = User::departmentCreate($deptOld) !== null;
+                        } else {
+                            $id = ctype_digit($deptOld['id']) ? (int) $deptOld['id'] : 0;
+                            $ok = $id > 0 && User::departmentFindById($id) !== null
+                                && User::departmentUpdate($id, $deptOld);
+                        }
+                        if ($ok) {
+                            $this->redirect('?page=admin_departments&saved=department');
+                        }
+                        $errors['form'] = 'admin_save_error';
+                    }
+                }
+            }
+        } elseif (isset($_GET['edit']) && ctype_digit((string) $_GET['edit'])) {
+            $dept = User::departmentFindById((int) $_GET['edit']);
+            if ($dept !== null) {
+                $editing = true;
+                $deptOld = [
+                    'id'      => (string) $dept['id'],
+                    'name_ar' => (string) $dept['name_ar'],
+                    'name_en' => (string) $dept['name_en'],
+                ];
+            }
+        }
+
+        $departments = User::departments();
+        $saved       = isset($_GET['saved']) ? (string) $_GET['saved'] : null;
+
+        $pageTitle = Helpers::t('admin_departments_title');
+        require VIEWS_PATH . '/admin/departments.php';
+    }
+
+    /**
      * All-tickets overview: every ticket in the system (no ownership scope),
      * with status/category/priority/agent filters and pagination, each row
      * linking to the shared ticket detail page (where an admin already has full
@@ -279,7 +362,7 @@ class AdminController
         $statuses   = Ticket::statuses();
         $categories = Ticket::categories();
         $priorities = Ticket::priorities();
-        $agents     = User::agents();
+        $agents     = User::assignees();
 
         // Filters from the query string.
         $filters = [];

@@ -33,6 +33,7 @@ return [
     // Roles
     'role_employee'     => 'Employee',
     'role_agent'        => 'Support Agent',
+    'role_manager'      => 'Department Manager',
     'role_admin'        => 'Administrator',
 
     // Dashboard
@@ -48,6 +49,7 @@ return [
     'nav_my_tickets'    => 'My tickets',
     'nav_tickets'       => 'Tickets',
     'nav_users'         => 'Users',
+    'nav_departments'   => 'Departments',
     'nav_categories'    => 'Categories',
     'nav_reports'       => 'Reports',
 
@@ -120,6 +122,13 @@ return [
     'pagination_prev'       => 'Previous',
     'pagination_next'       => 'Next',
     'pagination_info'       => 'Page {current} of {total}',
+
+    // Client-side table enhancement (live search / sort / pagination)
+    'table_search_placeholder' => 'Search the table…',
+    'table_no_matches'         => 'No rows match your search.',
+    'table_showing'            => 'Showing {from}–{to} of {total}',
+    'table_sort_asc'           => 'Sort ascending',
+    'table_sort_desc'          => 'Sort descending',
 
     // Phase 5 — ticket detail, comments & attachments
     'unassigned'            => 'Unassigned',
@@ -215,12 +224,30 @@ return [
 
     // Phase 7 — admin: ticket reassignment (on the ticket detail page)
     'admin_reassign_title'    => 'Reassign ticket',
-    'admin_reassign_label'    => 'Assign to agent',
+    'admin_reassign_label'    => 'Assign to (manager or technician)',
     'admin_reassign_submit'   => 'Reassign',
     'admin_reassigned'        => 'The ticket was reassigned.',
     'admin_reassign_error'    => 'Could not reassign the ticket, please try again.',
-    'admin_agent_invalid'     => 'Please choose a valid agent.',
-    'admin_no_agents'         => 'There are no agents available to assign.',
+    'admin_agent_invalid'     => 'Please choose a valid assignee within the ticket department.',
+    'admin_no_agents'         => 'No manager or technician is available in this ticket department.',
+
+    // Phase 11 — admin: department management
+    'admin_departments_title'     => 'Department management',
+    'admin_department_add'         => 'Add department',
+    'admin_department_add_title'   => 'Add a department',
+    'admin_department_edit_title'  => 'Edit department',
+    'admin_department_saved'       => 'The department was saved.',
+
+    // Phase 11 — department manager (dashboard + ticket processing)
+    'manager_dashboard_title'  => 'Department tickets',
+    'manager_actions'          => 'Manager actions',
+    'manager_assign_title'     => 'Assign ticket to a technician',
+    'manager_assign_label'     => 'Choose a technician from your department',
+    'manager_assign_submit'    => 'Assign to technician',
+    'manager_assigned'         => 'The ticket was assigned to the technician.',
+    'manager_technician_invalid' => 'Please choose a valid technician from your department.',
+    'manager_no_technicians'   => 'There are no technicians in your department to assign to.',
+    'manager_action_error'     => 'Could not complete the action, please try again.',
 
     // Phase 9 — reports & statistics
     'admin_reports_title'     => 'Reports & statistics',

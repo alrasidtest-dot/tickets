@@ -1,7 +1,9 @@
 <?php
 /**
- * Agent — ticket detail + processing: the ticket, its attachments, the comment
- * timeline, the claim / change-status controls and the add-comment form.
+ * Manager — ticket detail + processing: the ticket, its attachments, the comment
+ * timeline, the assign-to-technician control, the change-status control and the
+ * add-comment form. The manager dispatches to their department's technicians and
+ * may also process the ticket (change status / comment).
  *
  * Vars:
  *   $ticket             joined ticket row (Ticket::findDetailById)
@@ -9,9 +11,10 @@
  *   $ticketAttachments  attachments with comment_id NULL (added at creation)
  *   $commentAttachments map: comment id => attachment rows
  *   $statuses           status lookup rows (id, code) for the change-status form
+ *   $technicians        department technicians for the assign selector
  *   $errors             field => lang key
  *   $old                sticky comment input
- *   $canModify          true when the ticket is assigned to this technician
+ *   $assigned           true right after a successful assignment (PRG)
  *   $statusChanged      true right after a successful status change (PRG)
  *   $commented          true right after a successful comment add (PRG)
  *
@@ -22,9 +25,10 @@
  * @var array $ticketAttachments
  * @var array $commentAttachments
  * @var array $statuses
+ * @var array $technicians
  * @var array $errors
  * @var array $old
- * @var bool  $canModify
+ * @var bool  $assigned
  * @var bool  $statusChanged
  * @var bool  $commented
  */
@@ -52,19 +56,26 @@ $renderAttachments = function (array $items) {
 
 $ticketId = (int) $ticket['id'];
 
-// Signed-in agent's name — used to align their own comments as chat bubbles.
+// Signed-in manager's name — used to align their own comments as chat bubbles.
 $currentUserName = Auth::fullName();
+
+// Which modal (if any) should reopen on load after a failed submit.
+$assignModalOpen = !empty($errors['assign']);
+$statusModalOpen = !empty($errors['status']);
 
 require VIEWS_PATH . '/layout/header.php';
 require VIEWS_PATH . '/layout/sidebar.php';
 ?>
                 <div class="page-head">
                     <h1 class="page-title page-title--ticket"><?php echo e($ticket['ticket_number']); ?></h1>
-                    <a class="btn btn-outline btn-sm" href="<?php echo e(BASE_URL); ?>?page=agent_dashboard">
+                    <a class="btn btn-outline btn-sm" href="<?php echo e(BASE_URL); ?>?page=manager_dashboard">
                         <?php echo e(t('action_back')); ?>
                     </a>
                 </div>
 
+                <?php if ($assigned): ?>
+                    <div class="alert alert--success"><?php echo e(t('manager_assigned')); ?></div>
+                <?php endif; ?>
                 <?php if ($statusChanged): ?>
                     <div class="alert alert--success"><?php echo e(t('agent_status_changed')); ?></div>
                 <?php endif; ?>
@@ -125,54 +136,57 @@ require VIEWS_PATH . '/layout/sidebar.php';
                     </div>
                 </div>
 
-                <?php $statusModalOpen = !empty($errors['status']); ?>
                 <div class="card">
-                    <h2 class="card__title"><?php echo e(t('agent_actions')); ?></h2>
-
-                    <?php if ($canModify): ?>
-                        <div class="form-actions">
-                            <button type="button" class="btn btn-primary modal-trigger" data-modal-open="statusModal">
-                                <?php echo e(t('agent_change_status')); ?>
+                    <h2 class="card__title"><?php echo e(t('manager_actions')); ?></h2>
+                    <div class="form-actions">
+                        <?php if ($technicians): ?>
+                            <button type="button" class="btn btn-primary modal-trigger" data-modal-open="assignModal">
+                                <?php echo e(t('manager_assign_submit')); ?>
                             </button>
-                        </div>
-                    <?php else: ?>
-                        <p class="empty-state"><?php echo e(t('agent_not_allowed')); ?></p>
+                        <?php endif; ?>
+                        <button type="button" class="btn btn-outline modal-trigger" data-modal-open="statusModal">
+                            <?php echo e(t('agent_change_status')); ?>
+                        </button>
+                    </div>
+                    <?php if (!$technicians): ?>
+                        <p class="empty-state"><?php echo e(t('manager_no_technicians')); ?></p>
                     <?php endif; ?>
                 </div>
 
-                <?php if ($canModify): ?>
-                    <div class="modal" id="statusModal" role="dialog" aria-modal="true"
-                         aria-labelledby="statusModalTitle"<?php echo $statusModalOpen ? ' data-open-on-load="1"' : ''; ?>>
+                <?php if ($technicians): ?>
+                    <div class="modal" id="assignModal" role="dialog" aria-modal="true"
+                         aria-labelledby="assignModalTitle"<?php echo $assignModalOpen ? ' data-open-on-load="1"' : ''; ?>>
                         <div class="modal__overlay" data-modal-close></div>
                         <div class="modal__dialog" role="document">
                             <div class="modal__header">
-                                <h2 class="modal__title" id="statusModalTitle"><?php echo e(t('agent_change_status')); ?></h2>
+                                <h2 class="modal__title" id="assignModalTitle"><?php echo e(t('manager_assign_title')); ?></h2>
                                 <button type="button" class="modal__close" data-modal-close
                                         aria-label="<?php echo e(t('action_close')); ?>">&times;</button>
                             </div>
                             <div class="modal__body">
                                 <form method="post"
-                                      action="<?php echo e(BASE_URL); ?>?page=agent_ticket_view&amp;id=<?php echo $ticketId; ?>">
+                                      action="<?php echo e(BASE_URL); ?>?page=manager_ticket_view&amp;id=<?php echo $ticketId; ?>">
                                     <?php echo Auth::csrfField(); ?>
-                                    <input type="hidden" name="action" value="change_status">
+                                    <input type="hidden" name="action" value="assign">
 
                                     <div class="form-group">
-                                        <label class="form-label" for="status_id"><?php echo e(t('agent_change_status')); ?></label>
-                                        <select class="form-control" id="status_id" name="status_id" required>
-                                            <?php foreach ($statuses as $s): ?>
-                                                <option value="<?php echo (int) $s['id']; ?>"
-                                                    <?php echo (string) $ticket['status_code'] === (string) $s['code'] ? 'selected' : ''; ?>>
-                                                    <?php echo e(t('status_' . $s['code'])); ?>
+                                        <label class="form-label" for="agent_id"><?php echo e(t('manager_assign_label')); ?></label>
+                                        <select class="form-control" id="agent_id" name="agent_id" required>
+                                            <option value=""><?php echo e(t('select_placeholder')); ?></option>
+                                            <?php foreach ($technicians as $techn): ?>
+                                                <option value="<?php echo (int) $techn['id']; ?>"
+                                                    <?php echo ((int) $ticket['assigned_to'] === (int) $techn['id']) ? 'selected' : ''; ?>>
+                                                    <?php echo e($techn['full_name']); ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
-                                        <?php if (!empty($errors['status'])): ?>
-                                            <p class="form-error"><?php echo e(t($errors['status'])); ?></p>
+                                        <?php if (!empty($errors['assign'])): ?>
+                                            <p class="form-error"><?php echo e(t($errors['assign'])); ?></p>
                                         <?php endif; ?>
                                     </div>
 
                                     <div class="form-actions">
-                                        <button class="btn btn-primary" type="submit"><?php echo e(t('agent_status_update')); ?></button>
+                                        <button class="btn btn-primary" type="submit"><?php echo e(t('manager_assign_submit')); ?></button>
                                         <button class="btn btn-outline" type="button" data-modal-close>
                                             <?php echo e(t('action_cancel')); ?>
                                         </button>
@@ -182,6 +196,47 @@ require VIEWS_PATH . '/layout/sidebar.php';
                         </div>
                     </div>
                 <?php endif; ?>
+
+                <div class="modal" id="statusModal" role="dialog" aria-modal="true"
+                     aria-labelledby="statusModalTitle"<?php echo $statusModalOpen ? ' data-open-on-load="1"' : ''; ?>>
+                    <div class="modal__overlay" data-modal-close></div>
+                    <div class="modal__dialog" role="document">
+                        <div class="modal__header">
+                            <h2 class="modal__title" id="statusModalTitle"><?php echo e(t('agent_change_status')); ?></h2>
+                            <button type="button" class="modal__close" data-modal-close
+                                    aria-label="<?php echo e(t('action_close')); ?>">&times;</button>
+                        </div>
+                        <div class="modal__body">
+                            <form method="post"
+                                  action="<?php echo e(BASE_URL); ?>?page=manager_ticket_view&amp;id=<?php echo $ticketId; ?>">
+                                <?php echo Auth::csrfField(); ?>
+                                <input type="hidden" name="action" value="change_status">
+
+                                <div class="form-group">
+                                    <label class="form-label" for="status_id"><?php echo e(t('agent_change_status')); ?></label>
+                                    <select class="form-control" id="status_id" name="status_id" required>
+                                        <?php foreach ($statuses as $s): ?>
+                                            <option value="<?php echo (int) $s['id']; ?>"
+                                                <?php echo (string) $ticket['status_code'] === (string) $s['code'] ? 'selected' : ''; ?>>
+                                                <?php echo e(t('status_' . $s['code'])); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <?php if (!empty($errors['status'])): ?>
+                                        <p class="form-error"><?php echo e(t($errors['status'])); ?></p>
+                                    <?php endif; ?>
+                                </div>
+
+                                <div class="form-actions">
+                                    <button class="btn btn-primary" type="submit"><?php echo e(t('agent_status_update')); ?></button>
+                                    <button class="btn btn-outline" type="button" data-modal-close>
+                                        <?php echo e(t('action_cancel')); ?>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="card">
                     <h2 class="card__title"><?php echo e(t('comments_title')); ?></h2>
@@ -212,7 +267,7 @@ require VIEWS_PATH . '/layout/sidebar.php';
                     <h2 class="card__title"><?php echo e(t('comment_add')); ?></h2>
 
                     <form method="post"
-                          action="<?php echo e(BASE_URL); ?>?page=agent_ticket_view&amp;id=<?php echo $ticketId; ?>">
+                          action="<?php echo e(BASE_URL); ?>?page=manager_ticket_view&amp;id=<?php echo $ticketId; ?>">
                         <?php echo Auth::csrfField(); ?>
                         <input type="hidden" name="action" value="add_comment">
 

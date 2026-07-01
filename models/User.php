@@ -118,6 +118,70 @@ class User
     }
 
     /**
+     * Active users that a ticket can be assigned to (technicians + department
+     * managers), for the admin all-tickets assignee filter.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public static function assignees()
+    {
+        $stmt = Database::connection()->prepare(
+            "SELECT id, full_name, role FROM users
+             WHERE role IN ('agent','manager') AND is_active = 1
+             ORDER BY FIELD(role, 'manager', 'agent'), full_name"
+        );
+        $stmt->execute();
+
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Active technicians (role = 'agent') of a given department, for the manager
+     * ticket-assignment list. Returns an empty set when $departmentId is null.
+     *
+     * @param int|null $departmentId
+     * @return array<int,array<string,mixed>>
+     */
+    public static function techniciansByDepartment($departmentId)
+    {
+        if ($departmentId === null) {
+            return [];
+        }
+        $stmt = Database::connection()->prepare(
+            "SELECT id, full_name FROM users
+             WHERE role = 'agent' AND is_active = 1 AND department_id = :dept
+             ORDER BY full_name"
+        );
+        $stmt->execute([':dept' => (int) $departmentId]);
+
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Active users an admin may assign a ticket to within a department's
+     * structure: that department's managers and technicians (docs/SECURITY_AUTH.md).
+     * When $departmentId is null (e.g. the ticket's category has no department),
+     * falls back to every assignable user so the admin is never stuck.
+     *
+     * @param int|null $departmentId
+     * @return array<int,array<string,mixed>>
+     */
+    public static function assignableForDepartment($departmentId)
+    {
+        if ($departmentId === null) {
+            return self::assignees();
+        }
+        $stmt = Database::connection()->prepare(
+            "SELECT id, full_name, role FROM users
+             WHERE role IN ('agent','manager') AND is_active = 1 AND department_id = :dept
+             ORDER BY FIELD(role, 'manager', 'agent'), full_name"
+        );
+        $stmt->execute([':dept' => (int) $departmentId]);
+
+        return $stmt->fetchAll();
+    }
+
+    /**
      * Departments lookup, for the user-form department selector. There is no
      * standalone department management UI in V1 (docs/DATABASE.md scope note);
      * the admin only assigns an existing department to a user.
@@ -132,6 +196,73 @@ class User
         $stmt->execute();
 
         return $stmt->fetchAll();
+    }
+
+    /**
+     * A single department row by id, or null when not found (edit-form load).
+     *
+     * @param int $id
+     * @return array<string,mixed>|null
+     */
+    public static function departmentFindById($id)
+    {
+        $stmt = Database::connection()->prepare(
+            'SELECT id, name_ar, name_en FROM departments WHERE id = :id LIMIT 1'
+        );
+        $stmt->execute([':id' => (int) $id]);
+        $row = $stmt->fetch();
+
+        return $row !== false ? $row : null;
+    }
+
+    /**
+     * Create a department.
+     *
+     * @param array{name_ar:string,name_en:string} $data
+     * @return int|null The new department id, or null on failure.
+     */
+    public static function departmentCreate(array $data)
+    {
+        try {
+            $stmt = Database::connection()->prepare(
+                'INSERT INTO departments (name_ar, name_en) VALUES (:name_ar, :name_en)'
+            );
+            $stmt->execute([
+                ':name_ar' => (string) $data['name_ar'],
+                ':name_en' => (string) $data['name_en'],
+            ]);
+
+            return (int) Database::connection()->lastInsertId();
+        } catch (Throwable $e) {
+            error_log('User::departmentCreate failed: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Update a department's names.
+     *
+     * @param int                                   $id
+     * @param array{name_ar:string,name_en:string}  $data
+     * @return bool
+     */
+    public static function departmentUpdate($id, array $data)
+    {
+        try {
+            $stmt = Database::connection()->prepare(
+                'UPDATE departments SET name_ar = :name_ar, name_en = :name_en WHERE id = :id'
+            );
+            $stmt->execute([
+                ':name_ar' => (string) $data['name_ar'],
+                ':name_en' => (string) $data['name_en'],
+                ':id'      => (int) $id,
+            ]);
+
+            return true;
+        } catch (Throwable $e) {
+            error_log('User::departmentUpdate failed: ' . $e->getMessage());
+            return false;
+        }
     }
 
     // ---- Admin: write operations (phase 7) ---------------------------------

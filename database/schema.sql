@@ -31,7 +31,7 @@ CREATE TABLE `users` (
   `employee_id`   VARCHAR(50) NOT NULL,
   `full_name`     VARCHAR(100) NOT NULL,
   `email`         VARCHAR(100) NOT NULL,
-  `role`          ENUM('employee','agent','admin') NOT NULL,
+  `role`          ENUM('employee','agent','manager','admin') NOT NULL,
   `department_id` INT NULL,
   `is_active`     TINYINT(1) NOT NULL DEFAULT 1,
   `created_at`    DATETIME NOT NULL,
@@ -48,11 +48,16 @@ CREATE TABLE `users` (
 -- ---------------------------------------------------------------------------
 DROP TABLE IF EXISTS `ticket_categories`;
 CREATE TABLE `ticket_categories` (
-  `id`        INT NOT NULL AUTO_INCREMENT,
-  `name_ar`   VARCHAR(100) NOT NULL,
-  `name_en`   VARCHAR(100) NOT NULL,
-  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
-  PRIMARY KEY (`id`)
+  `id`            INT NOT NULL AUTO_INCREMENT,
+  `name_ar`       VARCHAR(100) NOT NULL,
+  `name_en`       VARCHAR(100) NOT NULL,
+  `department_id` INT NULL,     -- owning department (routes tickets to its manager)
+  `is_active`     TINYINT(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`),
+  KEY `idx_categories_department` (`department_id`),
+  CONSTRAINT `fk_categories_department`
+    FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`)
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------------
@@ -224,22 +229,25 @@ INSERT INTO `ticket_priorities` (`name_ar`, `name_en`, `level`, `sla_hours`, `is
   ('متوسط', 'Medium', 2, 24, 1),
   ('منخفض', 'Low',    3, 72, 1);
 
--- ticket_categories
-INSERT INTO `ticket_categories` (`name_ar`, `name_en`, `is_active`) VALUES
-  ('هاردوير', 'Hardware', 1),
-  ('سوفتوير', 'Software', 1),
-  ('شبكة',    'Network',  1),
-  ('إيميل',   'Email',    1),
-  ('أخرى',    'Other',    1);
-
--- departments (at least one default)
+-- departments (at least one default) — seeded before categories so the
+-- category department_id below can reference department id = 1.
 INSERT INTO `departments` (`name_ar`, `name_en`) VALUES
   ('قسم تقنية المعلومات', 'Information Technology');
+
+-- ticket_categories (all owned by the default IT department; the admin can
+-- create more departments and reassign categories from the admin panel).
+INSERT INTO `ticket_categories` (`name_ar`, `name_en`, `department_id`, `is_active`) VALUES
+  ('هاردوير', 'Hardware', 1, 1),
+  ('سوفتوير', 'Software', 1, 1),
+  ('شبكة',    'Network',  1, 1),
+  ('إيميل',   'Email',    1, 1),
+  ('أخرى',    'Other',    1, 1);
 
 -- initial admin user (employee_id must match the first row of the LDAP mock array)
 -- agent001 / emp001 are added so the role-based login redirect (employee/agent/admin)
 -- can be exercised end to end; they match the corresponding config/ldap.php mock users.
 INSERT INTO `users` (`employee_id`, `full_name`, `email`, `role`, `department_id`, `is_active`, `created_at`) VALUES
-  ('admin001', 'مدير النظام', 'admin@bank.local', 'admin',    1, 1, NOW()),
-  ('agent001', 'فني الدعم',   'agent@bank.local', 'agent',    1, 1, NOW()),
-  ('emp001',   'موظف تجريبي', 'emp@bank.local',   'employee', 1, 1, NOW());
+  ('admin001',   'مدير النظام', 'admin@bank.local',   'admin',    1, 1, NOW()),
+  ('manager001', 'مدير القسم',  'manager@bank.local', 'manager',  1, 1, NOW()),
+  ('agent001',   'فني الدعم',   'agent@bank.local',   'agent',    1, 1, NOW()),
+  ('emp001',     'موظف تجريبي', 'emp@bank.local',     'employee', 1, 1, NOW());

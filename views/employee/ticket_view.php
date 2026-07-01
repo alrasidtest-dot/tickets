@@ -165,7 +165,7 @@ require VIEWS_PATH . '/layout/sidebar.php';
                                                 <?php foreach ($agents as $a): ?>
                                                     <option value="<?php echo (int) $a['id']; ?>"
                                                         <?php echo ((int) $ticket['assigned_to'] === (int) $a['id']) ? 'selected' : ''; ?>>
-                                                        <?php echo e($a['full_name']); ?>
+                                                        <?php echo e($a['full_name']); ?><?php if (!empty($a['role'])): ?> — <?php echo e(t('role_' . $a['role'])); ?><?php endif; ?>
                                                     </option>
                                                 <?php endforeach; ?>
                                             </select>

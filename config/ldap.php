@@ -36,6 +36,10 @@ return [
         // First entry MUST stay 'admin001' (see note above).
         'admin001' => ['employee_id' => 'admin001', 'password' => 'admin123'],
 
+        // Department managers (route + process tickets for their department).
+        'manager001' => ['employee_id' => 'manager001', 'password' => 'Sudan@2025'],
+        'manager002' => ['employee_id' => 'manager002', 'password' => 'Sudan@2025'],
+
         // Demo directory — passwords match database/seed_demo.php (local dev only).
         'agent001' => ['employee_id' => 'agent001', 'password' => 'Sudan@2025'],
         'agent002' => ['employee_id' => 'agent002', 'password' => 'Sudan@2025'],

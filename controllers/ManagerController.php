@@ -1,21 +1,24 @@
 <?php
 /**
- * AgentController — the support agent's dashboard and ticket-processing view.
+ * ManagerController — the department manager's queue and ticket-processing view.
  *
- * Agents (technicians) see only the tickets assigned to them — assignment is
- * top-down from an admin or a department manager, so technicians no longer
- * self-claim. From the detail view they change status and post comments. Each
- * status change is recorded in ticket_history and raises a notification row (the
- * model owns those writes inside a single transaction — docs/BACKEND_GUIDE.md).
+ * A department manager sees every ticket whose category belongs to their
+ * department (Ticket::findForManager) and, from the detail view, can dispatch a
+ * ticket to one of their department's technicians, change its status and post
+ * comments — the manager both routes and processes (docs/SECURITY_AUTH.md).
  *
- * Every method starts with Auth::require('agent'); row-level visibility and
- * modify rights are enforced through Ticket::canAccess / Ticket::canModify.
+ * Every method starts with Auth::require('manager'); row-level visibility and
+ * modify rights are enforced through Ticket::canAccess / Ticket::canModify with
+ * the manager's department id (Auth::departmentId()). Each status/assignment
+ * change is recorded in ticket_history and raises a notification (the model owns
+ * those writes inside a single transaction — docs/BACKEND_GUIDE.md).
  */
 require_once MODELS_PATH . '/Ticket.php';
 require_once MODELS_PATH . '/Attachment.php';
 require_once MODELS_PATH . '/Comment.php';
+require_once MODELS_PATH . '/User.php';
 
-class AgentController
+class ManagerController
 {
     /**
      * Rows loaded per page. The dashboard table is enhanced on the client with
@@ -26,16 +29,16 @@ class AgentController
     const PER_PAGE = 100;
 
     /**
-     * Agent dashboard: the tickets assigned to the technician, with optional
+     * Manager dashboard: every ticket in the manager's department, with optional
      * status/category/priority filters and pagination.
      *
      * @return void
      */
     public function dashboard()
     {
-        Auth::require('agent');
+        Auth::require('manager');
 
-        $agentId = (int) Auth::id();
+        $deptId = Auth::departmentId();
 
         // Filters from the query string (ints only).
         $filters = [];
@@ -45,8 +48,15 @@ class AgentController
             }
         }
 
+        // A manager with no department has an empty scope.
+        if ($deptId === null) {
+            $total   = 0;
+            $tickets = [];
+        } else {
+            $total   = Ticket::countForManager($deptId, $filters);
+        }
+
         // Pagination.
-        $total   = Ticket::countForAgent($agentId, $filters);
         $pages   = (int) max(1, (int) ceil($total / self::PER_PAGE));
         $pageNum = isset($_GET['p']) && ctype_digit((string) $_GET['p']) && (int) $_GET['p'] > 0
             ? (int) $_GET['p'] : 1;
@@ -55,43 +65,49 @@ class AgentController
         }
         $offset = ($pageNum - 1) * self::PER_PAGE;
 
-        $tickets    = Ticket::findForAgent($agentId, $filters, self::PER_PAGE, $offset);
+        if ($deptId !== null) {
+            $tickets = Ticket::findForManager($deptId, $filters, self::PER_PAGE, $offset);
+        }
+
         $categories = Ticket::categories();
         $priorities = Ticket::priorities();
         $statuses   = Ticket::statuses();
 
-        $pageTitle = Helpers::t('agent_dashboard_title');
-        require VIEWS_PATH . '/agent/dashboard.php';
+        $pageTitle = Helpers::t('manager_dashboard_title');
+        require VIEWS_PATH . '/manager/dashboard.php';
     }
 
     /**
-     * Agent ticket detail + processing. GET renders the ticket, its comments and
-     * attachments, the change-status control and the comment form. POST
-     * dispatches on the 'action' field (change_status / add_comment), then
-     * redirects (PRG).
+     * Manager ticket detail + processing. GET renders the ticket, its comments
+     * and attachments, the assign / change-status controls and the comment form.
+     * POST dispatches on the 'action' field (assign / change_status /
+     * add_comment), then redirects (PRG).
      *
-     * Visibility is the technician rule in Ticket::canAccess (assigned to them);
-     * the same scope drives Ticket::canModify.
+     * Visibility and modify rights are the manager department scope in
+     * Ticket::canAccess / Ticket::canModify.
      *
      * @return void
      */
     public function viewTicket()
     {
-        Auth::require('agent');
+        Auth::require('manager');
 
-        $agentId = (int) Auth::id();
-        $role    = (string) Auth::role();
+        $managerId = (int) Auth::id();
+        $role      = (string) Auth::role();
+        $deptId    = Auth::departmentId();
         $id = isset($_GET['id']) && ctype_digit((string) $_GET['id']) ? (int) $_GET['id'] : 0;
 
         $ticket = $id > 0 ? Ticket::findDetailById($id) : null;
-        // Not found, or not accessible to this agent: don't reveal which.
-        if ($ticket === null || !Ticket::canAccess($ticket, $agentId, $role)) {
+        // Not found, or not in this manager's department: don't reveal which.
+        if ($ticket === null || !Ticket::canAccess($ticket, $managerId, $role, $deptId)) {
             $this->notFound();
         }
 
-        $statuses = Ticket::statuses();
-        $errors   = [];
-        $old      = ['comment' => ''];
+        // The technicians this manager may dispatch the ticket to.
+        $technicians = User::techniciansByDepartment($deptId);
+        $statuses    = Ticket::statuses();
+        $errors      = [];
+        $old         = ['comment' => ''];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!Auth::csrfVerify($_POST['csrf_token'] ?? null)) {
@@ -99,18 +115,24 @@ class AgentController
             } else {
                 $action = (string) ($_POST['action'] ?? '');
 
-                if ($action === 'change_status') {
-                    if (!Ticket::canModify($ticket, $agentId, $role)) {
-                        $errors['form'] = 'agent_not_allowed';
+                if ($action === 'assign') {
+                    // Dispatch to one of the department's technicians only.
+                    $agentId = (string) ($_POST['agent_id'] ?? '');
+                    if (!$this->idIn($agentId, $technicians)) {
+                        $errors['assign'] = 'manager_technician_invalid';
+                    } elseif (Ticket::assign($id, (int) $agentId, $managerId)) {
+                        $this->redirect('?page=manager_ticket_view&id=' . $id . '&assigned=1');
                     } else {
-                        $statusId = (string) ($_POST['status_id'] ?? '');
-                        if (!$this->idIn($statusId, $statuses)) {
-                            $errors['status'] = 'required_field';
-                        } elseif (Ticket::changeStatus($id, (int) $statusId, $agentId)) {
-                            $this->redirect('?page=agent_ticket_view&id=' . $id . '&status=1');
-                        } else {
-                            $errors['form'] = 'agent_action_error';
-                        }
+                        $errors['form'] = 'manager_action_error';
+                    }
+                } elseif ($action === 'change_status') {
+                    $statusId = (string) ($_POST['status_id'] ?? '');
+                    if (!$this->idIn($statusId, $statuses)) {
+                        $errors['status'] = 'required_field';
+                    } elseif (Ticket::changeStatus($id, (int) $statusId, $managerId)) {
+                        $this->redirect('?page=manager_ticket_view&id=' . $id . '&status=1');
+                    } else {
+                        $errors['form'] = 'manager_action_error';
                     }
                 } elseif ($action === 'add_comment') {
                     $old['comment'] = trim((string) ($_POST['comment'] ?? ''));
@@ -118,18 +140,17 @@ class AgentController
                         $errors['comment'] = 'required_field';
                     } elseif (Comment::create([
                         'ticket_id' => $id,
-                        'user_id'   => $agentId,
+                        'user_id'   => $managerId,
                         'comment'   => $old['comment'],
                     ]) !== null) {
-                        $this->redirect('?page=agent_ticket_view&id=' . $id . '&commented=1');
+                        $this->redirect('?page=manager_ticket_view&id=' . $id . '&commented=1');
                     } else {
                         $errors['form'] = 'comment_save_error';
                     }
                 }
             }
 
-            // After a failed action, reload the row so the view reflects the
-            // current state (e.g. assignment that partially changed).
+            // Reload the row so a failed/successful action reflects current state.
             $refreshed = Ticket::findDetailById($id);
             if ($refreshed !== null) {
                 $ticket = $refreshed;
@@ -150,12 +171,12 @@ class AgentController
             }
         }
 
-        $canModify     = Ticket::canModify($ticket, $agentId, $role);
+        $assigned      = isset($_GET['assigned']);
         $statusChanged = isset($_GET['status']);
         $commented     = isset($_GET['commented']);
 
         $pageTitle = (string) $ticket['ticket_number'];
-        require VIEWS_PATH . '/agent/ticket_view.php';
+        require VIEWS_PATH . '/manager/ticket_view.php';
     }
 
     // ---- internals ---------------------------------------------------------
@@ -183,8 +204,8 @@ class AgentController
     }
 
     /**
-     * Emit a generic 404 (used for both a missing ticket and one the agent may
-     * not access, so existence never leaks) and stop.
+     * Emit a generic 404 (used for both a missing ticket and one outside the
+     * manager's department, so existence never leaks) and stop.
      *
      * @return void
      */

@@ -14,8 +14,13 @@ require_once MODELS_PATH . '/User.php';
 
 class TicketController
 {
-    /** Tickets shown per page in the list. */
-    const PER_PAGE = 10;
+    /**
+     * Rows loaded per page. The list tables are enhanced on the client with
+     * live search / column sort / pagination (assets/js/app.js), so we send a
+     * generous slice in one request and let the browser paginate it; the
+     * server LIMIT/OFFSET stays as a safety cap and no-JS fallback.
+     */
+    const PER_PAGE = 100;
 
     /**
      * Allowed upload types per docs/SECURITY_AUTH.md: extension => acceptable
@@ -185,10 +190,14 @@ class TicketController
         $errors = [];
         $old    = ['comment' => ''];
 
-        // Admins may reassign a ticket to any agent from this page (the third
-        // phase-7 admin capability). Ticket::assign records the change in
-        // ticket_history. The list is only needed for admins.
-        $agents = $role === 'admin' ? User::agents() : [];
+        // Admins may reassign a ticket from this page. Within the department
+        // structure the candidates are the ticket department's manager(s) and
+        // technicians (docs/SECURITY_AUTH.md); the department is derived from the
+        // ticket's category. Ticket::assign records the change in ticket_history.
+        $ticketDeptId = isset($ticket['category_department_id']) && $ticket['category_department_id'] !== null
+            ? (int) $ticket['category_department_id']
+            : null;
+        $agents = $role === 'admin' ? User::assignableForDepartment($ticketDeptId) : [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!Auth::csrfVerify($_POST['csrf_token'] ?? null)) {
@@ -272,7 +281,7 @@ class TicketController
      */
     public function download()
     {
-        Auth::requireAny(['employee', 'agent', 'admin']);
+        Auth::requireAny(['employee', 'agent', 'manager', 'admin']);
 
         $id = isset($_GET['id']) && ctype_digit((string) $_GET['id']) ? (int) $_GET['id'] : 0;
         $attachment = $id > 0 ? Attachment::findById($id) : null;
@@ -282,7 +291,7 @@ class TicketController
 
         $ticket = Ticket::findDetailById((int) $attachment['ticket_id']);
         if ($ticket === null
-            || !Ticket::canAccess($ticket, (int) Auth::id(), (string) Auth::role())) {
+            || !Ticket::canAccess($ticket, (int) Auth::id(), (string) Auth::role(), Auth::departmentId())) {
             $this->notFound();
         }
 

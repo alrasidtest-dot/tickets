@@ -579,27 +579,75 @@ textarea.form-control { min-height: 120px; resize: vertical; }
 }
 .table {
     width: 100%;
-    border-collapse: collapse;
-    font-size: .88rem;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: .9rem;
 }
 .table th,
 .table td {
-    padding: calc(var(--spacing-unit) * 1.25) calc(var(--spacing-unit) * 2);
+    padding: calc(var(--spacing-unit) * 1.6) calc(var(--spacing-unit) * 2);
     text-align: start;
     border-bottom: 1px solid var(--color-border);
+    vertical-align: middle;
 }
-.table td { font-size: .88rem; }
-.table th {
+.table td { font-size: .9rem; color: var(--color-text); }
+.table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     background: var(--color-primary-light);
-    color: var(--color-primary);
-    font-size: .82rem;
-    font-weight: 600;
+    color: var(--color-primary-dark);
+    font-size: .76rem;
+    font-weight: 700;
+    letter-spacing: .02em;
     white-space: nowrap;
+    border-bottom: 1px solid var(--color-border);
 }
-/* Zebra striping */
-.table tbody tr:nth-child(even) { background: #F4F8F5; }
-.table tbody tr:hover { background: var(--color-accent-light); }
+body.lang-en .table thead th { text-transform: uppercase; }
+/* Clean modern rows: no zebra, hairline separators, soft hover lift. */
+.table tbody tr { transition: background-color .12s ease; }
+.table tbody tr:hover { background: var(--color-primary-light); }
 .table tbody tr:last-child td { border-bottom: 0; }
+/* First cell (usually an id / ticket number) reads as the row's anchor. */
+.table tbody td:first-child { font-weight: 600; color: var(--color-text); }
+
+/* ---- Sortable headers (enhanced tables, assets/js/app.js) ---- */
+.table thead th.is-sortable {
+    cursor: pointer;
+    user-select: none;
+}
+.table thead th.is-sortable:hover { background: #D9ECE0; }
+.table thead th.is-sortable:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+.data-table__sort-icon {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    margin-inline-start: 6px;
+    vertical-align: middle;
+    border-inline-start: 4px solid transparent;
+    border-inline-end: 4px solid transparent;
+    /* Neutral (unsorted) state: a faint dimmed chevron pair via opacity. */
+    border-top: 5px solid currentColor;
+    opacity: .22;
+    transition: opacity .12s ease, transform .12s ease;
+}
+.table thead th.is-sortable:hover .data-table__sort-icon { opacity: .5; }
+.table thead th.is-sorted-asc .data-table__sort-icon {
+    opacity: .9;
+    transform: rotate(180deg);
+}
+.table thead th.is-sorted-desc .data-table__sort-icon { opacity: .9; }
+
+/* "No matches" placeholder row injected while a live search hides every row. */
+.table tbody tr.data-table__empty td {
+    padding: calc(var(--spacing-unit) * 3);
+    text-align: center;
+    color: var(--color-text-muted);
+    border-bottom: 0;
+}
 
 /* ---- Badges (status / priority) — soft "pill" style, never a solid fill ---- */
 .badge {
@@ -1294,3 +1342,139 @@ small,
 
 /* Lock background scroll while a modal is open. */
 body.modal-lock { overflow: hidden; }
+
+/* =========================================================================
+   12. Enhanced data tables — toolbar, search, sort & client pagination
+   Chrome injected by assets/js/app.js around any [data-enhance] table. The
+   table itself keeps the styles in section 5; this only adds the surrounding
+   search bar and pager so the table reads as one cohesive, modern panel.
+   ========================================================================= */
+.data-table {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Top row: live-search box (start) + result count (end). */
+.data-table__toolbar {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--spacing-unit) * 2);
+    margin-bottom: calc(var(--spacing-unit) * 2);
+    flex-wrap: wrap;
+}
+.data-table__search {
+    position: relative;
+    flex: 1 1 240px;
+    max-width: 360px;
+    display: flex;
+    align-items: center;
+}
+.data-table__search-icon {
+    position: absolute;
+    inset-inline-start: calc(var(--spacing-unit) * 1.25);
+    color: var(--color-text-muted);
+    pointer-events: none;
+}
+.data-table__search-input {
+    width: 100%;
+    padding: calc(var(--spacing-unit) * 1.1) calc(var(--spacing-unit) * 1.5);
+    padding-inline-start: calc(var(--spacing-unit) * 4.5);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font: inherit;
+    font-size: .88rem;
+}
+.data-table__search-input:focus {
+    outline: none;
+    background: var(--color-surface);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(21, 122, 59, .15);
+}
+.data-table__count {
+    margin-inline-start: auto;
+    font-size: .8rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+/* Bottom row: "Showing X–Y of Z" (start) + numbered pager (end). */
+.data-table__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--spacing-unit) * 2);
+    margin-top: calc(var(--spacing-unit) * 2);
+    flex-wrap: wrap;
+}
+.data-table__info {
+    font-size: .82rem;
+    color: var(--color-text-muted);
+}
+.data-table__pager {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--spacing-unit) * .5);
+    margin-inline-start: auto;
+}
+.data-table__page-btn {
+    min-width: 34px;
+    height: 34px;
+    padding: 0 calc(var(--spacing-unit) * 1.25);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-size: .85rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color .12s ease, border-color .12s ease, color .12s ease;
+}
+.data-table__page-btn:hover:not(:disabled):not(.is-current) {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: var(--color-primary-light);
+}
+.data-table__page-btn.is-current {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+    cursor: default;
+}
+.data-table__page-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* The server-rendered pager is a no-JS fallback; once the client pager exists
+   it would duplicate it, so hide it whenever JS (and thus a .data-table) ran. */
+.js .data-table + .pagination,
+.js .data-table ~ .pagination { display: none; }
+
+@media (max-width: 768px) {
+    .data-table__search { max-width: none; }
+    .data-table__count { margin-inline-start: 0; }
+}
+
+/* =========================================================================
+   13. Layout polish — tighter rhythm & a roomier reading column
+   ========================================================================= */
+.content { padding: calc(var(--spacing-unit) * 4) calc(var(--spacing-unit) * 5); }
+.content > * { max-width: 1280px; }
+
+/* Cards sit a touch lighter and lift slightly on hover for depth. */
+.card {
+    padding: calc(var(--spacing-unit) * 3);
+    transition: box-shadow .15s ease;
+}
+
+/* Stat cards: even sizing, clearer hierarchy. */
+.dash-stats { gap: calc(var(--spacing-unit) * 2.5); }
+.dash-card { padding: calc(var(--spacing-unit) * 3); gap: calc(var(--spacing-unit) * 2.25); }
+.dash-card__icon { width: 48px; height: 48px; }
+.dash-card__value { font-size: 1.9rem; }
+.dash-card__label { font-size: .85rem; font-weight: 500; }
+
+@media (max-width: 768px) {
+    .content { padding: calc(var(--spacing-unit) * 2.5) calc(var(--spacing-unit) * 2); }
+}

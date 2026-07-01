@@ -150,7 +150,7 @@ require VIEWS_PATH . '/layout/sidebar.php';
                         <p class="empty-state"><?php echo e(t('no_results')); ?></p>
                     <?php else: ?>
                         <div class="table-wrap">
-                            <table class="table">
+                            <table class="table" data-enhance>
                                 <thead>
                                     <tr>
                                         <th><?php echo e(t('label_assigned_to')); ?></th>
@@ -183,7 +183,7 @@ require VIEWS_PATH . '/layout/sidebar.php';
                         <p class="empty-state"><?php echo e(t('report_no_overdue')); ?></p>
                     <?php else: ?>
                         <div class="table-wrap">
-                            <table class="table">
+                            <table class="table" data-enhance>
                                 <thead>
                                     <tr>
                                         <th><?php echo e(t('label_ticket_number')); ?></th>

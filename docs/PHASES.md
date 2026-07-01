@@ -91,3 +91,13 @@
 - لا نصوص ثابتة متبقية خارج lang/ar.php و lang/en.php.
 - لا أخطاء PHP/استعلامات غير محضّرة (unprepared) في أي ملف.
 **الحالة:** ✅
+
+## المرحلة 11: دور مدير القسم (Department Manager)
+**الهدف:** إضافة دور manager بين admin و agent مع نموذج إسناد هرمي: المدير العام يسند لقسم (عبر مدير القسم) أو لفني مباشرة ضمن قسم التذكرة؛ مدير القسم يعيد الإسناد لفنّيي قسمه ويعالج كفني؛ الفني لا يسند لنفسه.
+**الملفات:** database/schema.sql (role ENUM + ticket_categories.department_id + seed) + database/migrations/2026_07_01_add_department_manager.sql, config/ldap.php, core/Auth.php (department_id في الجلسة), models/Ticket.php (canAccess/canModify + findForManager/countForManager + dashboardStats), models/User.php (نطاق القسم + إدارة الأقسام), controllers/ManagerController.php (+ views/manager/*), controllers/AdminController.php (admin_departments + قسم التصنيف) + views/admin/departments.php, controllers/AuthController.php + views/dashboard.php, controllers/AgentController.php + views/agent/ticket_view.php (إزالة السحب), controllers/TicketController.php (إسناد ضمن القسم), core/Router.php, views/layout/sidebar.php, lang/ar.php + lang/en.php.
+**معايير القبول:**
+- مدير القسم يرى فقط تذاكر تصنيفات قسمه، ويسندها لفنّيي قسمه فقط، ويستطيع تغيير الحالة/التعليق.
+- الفني يرى فقط التذاكر المسندة إليه ولا يملك زر السحب (assign_me).
+- المدير العام يعيد الإسناد لمدير القسم أو لفني ضمن قسم التذكرة (مشتق من التصنيف).
+- كل الفحوص عبر Ticket::canAccess/canModify، وكل النصوص عبر lang/، وكل الاستعلامات محضّرة.
+**الحالة:** ✅

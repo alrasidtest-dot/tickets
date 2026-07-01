@@ -33,6 +33,7 @@ return [
     // Roles
     'role_employee'     => 'موظف',
     'role_agent'        => 'فني دعم',
+    'role_manager'      => 'مدير قسم',
     'role_admin'        => 'مدير النظام',
 
     // Dashboard
@@ -48,6 +49,7 @@ return [
     'nav_my_tickets'    => 'بلاغاتي',
     'nav_tickets'       => 'التذاكر',
     'nav_users'         => 'المستخدمون',
+    'nav_departments'   => 'الأقسام',
     'nav_categories'    => 'الفئات',
     'nav_reports'       => 'التقارير',
 
@@ -120,6 +122,13 @@ return [
     'pagination_prev'       => 'السابق',
     'pagination_next'       => 'التالي',
     'pagination_info'       => 'صفحة {current} من {total}',
+
+    // Client-side table enhancement (live search / sort / pagination)
+    'table_search_placeholder' => 'ابحث في الجدول…',
+    'table_no_matches'         => 'لا توجد نتائج مطابقة لبحثك.',
+    'table_showing'            => 'عرض {from}–{to} من {total}',
+    'table_sort_asc'           => 'ترتيب تصاعدي',
+    'table_sort_desc'          => 'ترتيب تنازلي',
 
     // Phase 5 — ticket detail, comments & attachments
     'unassigned'            => 'غير مُسند',
@@ -215,12 +224,30 @@ return [
 
     // Phase 7 — admin: ticket reassignment (on the ticket detail page)
     'admin_reassign_title'    => 'إعادة تعيين التذكرة',
-    'admin_reassign_label'    => 'إسناد إلى فني',
+    'admin_reassign_label'    => 'إسناد إلى (مدير قسم أو فني)',
     'admin_reassign_submit'   => 'إعادة التعيين',
     'admin_reassigned'        => 'تمت إعادة تعيين التذكرة بنجاح.',
     'admin_reassign_error'    => 'تعذّرت إعادة تعيين التذكرة، يرجى المحاولة مرة أخرى.',
-    'admin_agent_invalid'     => 'يرجى اختيار فني صالح.',
-    'admin_no_agents'         => 'لا يوجد فنيون متاحون للإسناد.',
+    'admin_agent_invalid'     => 'يرجى اختيار مسؤول إسناد صالح ضمن قسم التذكرة.',
+    'admin_no_agents'         => 'لا يوجد مدير قسم أو فني متاح للإسناد ضمن قسم هذه التذكرة.',
+
+    // Phase 11 — admin: department management
+    'admin_departments_title'     => 'إدارة الأقسام',
+    'admin_department_add'         => 'إضافة قسم',
+    'admin_department_add_title'   => 'إضافة قسم',
+    'admin_department_edit_title'  => 'تعديل قسم',
+    'admin_department_saved'       => 'تم حفظ القسم بنجاح.',
+
+    // Phase 11 — department manager (dashboard + ticket processing)
+    'manager_dashboard_title'  => 'تذاكر القسم',
+    'manager_actions'          => 'إجراءات مدير القسم',
+    'manager_assign_title'     => 'إسناد التذكرة لفني',
+    'manager_assign_label'     => 'اختر فنيًا من قسمك',
+    'manager_assign_submit'    => 'إسناد لفني',
+    'manager_assigned'         => 'تم إسناد التذكرة للفني بنجاح.',
+    'manager_technician_invalid' => 'يرجى اختيار فني صالح من قسمك.',
+    'manager_no_technicians'   => 'لا يوجد فنيون في قسمك للإسناد إليهم.',
+    'manager_action_error'     => 'تعذّر تنفيذ الإجراء، يرجى المحاولة مرة أخرى.',
 
     // Phase 9 — reports & statistics
     'admin_reports_title'     => 'التقارير والإحصائيات',

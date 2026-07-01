@@ -137,6 +137,9 @@ $insUser = $db->prepare(
 );
 
 $demoUsers = [
+    // department managers (route + process tickets for their department)
+    ['manager001', 'طارق عبدالماجد حسن', 'tariq.manager@bank-sudan.sd',    'manager',  42],
+    ['manager002', 'هالة الصادق أحمد',   'hala.manager@bank-sudan.sd',     'manager',  42],
     // agents
     ['agent001', 'خالد إبراهيم يوسف',  'khalid.ibrahim@bank-sudan.sd',     'agent',    40],
     ['agent002', 'سارة أحمد عوض',       'sara.ahmed@bank-sudan.sd',         'agent',    40],

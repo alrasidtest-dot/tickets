@@ -7,18 +7,20 @@
 | employee_id | VARCHAR(50) UNIQUE | معرّف LDAP/الموظف |
 | full_name | VARCHAR(100) | |
 | email | VARCHAR(100) UNIQUE | |
-| role | ENUM('employee','agent','admin') | |
-| department_id | INT FK→departments.id | NULL مسموح |
+| role | ENUM('employee','agent','manager','admin') | manager = مدير قسم |
+| department_id | INT FK→departments.id | NULL مسموح؛ مطلوب فعليًا لأدوار manager/agent كي يعمل نطاق القسم |
 | is_active | TINYINT(1) DEFAULT 1 | |
 | created_at | DATETIME | |
 
 ## departments
 id INT PK AI | name_ar VARCHAR(100) | name_en VARCHAR(100)
 
-ملاحظة نطاق (V1): department_id يُعرض فقط في ملف المستخدم (عرض نصي)، لا واجهة إدارة مستقلة ولا فلترة/تقارير بحسب القسم.
+ملاحظة نطاق: للأقسام واجهة إدارة مستقلة (admin_departments: إضافة/تعديل)، وتُستخدم لربط المستخدمين (manager/agent) والتصنيفات بالأقسام. الأساس لتوجيه التذاكر لمدير القسم.
 
 ## ticket_categories
-id INT PK AI | name_ar VARCHAR(100) | name_en VARCHAR(100) | is_active TINYINT(1) DEFAULT 1
+id INT PK AI | name_ar VARCHAR(100) | name_en VARCHAR(100) | department_id INT FK→departments.id (NULL مسموح، ON DELETE SET NULL) | is_active TINYINT(1) DEFAULT 1
+
+ملاحظة: department_id يربط التصنيف بقسم؛ مدير القسم يرى/يعالج كل تذكرة تصنيفها ضمن قسمه (نطاق مدير القسم = category.department_id == manager.department_id).
 
 ## ticket_priorities
 id INT PK AI | name_ar VARCHAR(50) | name_en VARCHAR(50) | level INT (1=عاجل,2=متوسط,3=منخفض) | sla_hours INT | is_active TINYINT(1) DEFAULT 1

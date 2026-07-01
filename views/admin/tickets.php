@@ -97,7 +97,7 @@ require VIEWS_PATH . '/layout/sidebar.php';
                         <p class="empty-state"><?php echo e(t('no_results')); ?></p>
                     <?php else: ?>
                         <div class="table-wrap">
-                            <table class="table">
+                            <table class="table" data-enhance>
                                 <thead>
                                     <tr>
                                         <th><?php echo e(t('label_ticket_number')); ?></th>
@@ -108,7 +108,7 @@ require VIEWS_PATH . '/layout/sidebar.php';
                                         <th><?php echo e(t('label_status')); ?></th>
                                         <th><?php echo e(t('label_assigned_to')); ?></th>
                                         <th><?php echo e(t('label_created_at')); ?></th>
-                                        <th><?php echo e(t('label_actions')); ?></th>
+                                        <th data-no-sort><?php echo e(t('label_actions')); ?></th>
                                     </tr>
                                 </thead>
                                 <tbody>

@@ -70,5 +70,16 @@ $year = date('Y');
         document.querySelectorAll('.modal[data-open-on-load="1"]').forEach(openModal);
     })();
 </script>
+
+<!-- Localized strings for the client-side table enhancement (assets/js/app.js).
+     Sourced from lang/ via t() so the JS keeps no hardcoded UI text. -->
+<script>
+    window.APP_I18N = {
+        table_search_placeholder: <?php echo json_encode(t('table_search_placeholder')); ?>,
+        table_no_matches: <?php echo json_encode(t('table_no_matches')); ?>,
+        table_showing: <?php echo json_encode(t('table_showing')); ?>
+    };
+</script>
+<script src="/assets/js/app.js" defer></script>
 </body>
 </html>

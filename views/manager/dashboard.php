@@ -1,12 +1,13 @@
 <?php
 /**
- * Agent — dashboard list: tickets assigned to the agent plus the unassigned
- * ones (which they may claim).
+ * Manager — department queue: every ticket whose category belongs to the
+ * manager's department, with status/category/priority filters and pagination.
+ * Each row links to the manager ticket detail page (assign / process).
  *
  * Vars: $tickets (joined rows), $statuses/$categories/$priorities (filter
  * options), $filters (active filters), pagination $pageNum / $pages / $total,
  * $pageTitle. Status & priority render via the badge components; the assignee
- * column shows "assigned to me" or "unassigned".
+ * column shows the technician name or an "unassigned" badge.
  *
  * @var array $tickets
  * @var array $statuses
@@ -16,8 +17,7 @@
  * @var int   $pageNum
  * @var int   $pages
  */
-$lang    = Helpers::lang();
-$agentId = (int) Auth::id();
+$lang = Helpers::lang();
 
 // Active filters as a query fragment, reused by the pagination links.
 $filterQuery = http_build_query(array_filter([
@@ -30,11 +30,11 @@ $filterSuffix = $filterQuery !== '' ? '&amp;' . str_replace('&', '&amp;', $filte
 require VIEWS_PATH . '/layout/header.php';
 require VIEWS_PATH . '/layout/sidebar.php';
 ?>
-                <h1 class="page-title"><?php echo e(t('agent_dashboard_title')); ?></h1>
+                <h1 class="page-title"><?php echo e(t('manager_dashboard_title')); ?></h1>
 
                 <div class="card">
                     <form method="get" action="<?php echo e(BASE_URL); ?>" class="filter-bar">
-                        <input type="hidden" name="page" value="agent_dashboard">
+                        <input type="hidden" name="page" value="manager_dashboard">
 
                         <select class="form-control" name="status_id" onchange="this.form.submit()">
                             <option value=""><?php echo e(t('filter_all_statuses')); ?></option>
@@ -116,13 +116,13 @@ require VIEWS_PATH . '/layout/sidebar.php';
                                                 <?php if ($row['assigned_to'] === null): ?>
                                                     <span class="badge badge--warning"><?php echo e(t('unassigned')); ?></span>
                                                 <?php else: ?>
-                                                    <span class="badge badge--success"><?php echo e(t('assigned_to_me')); ?></span>
+                                                    <?php echo e($row['assignee_name']); ?>
                                                 <?php endif; ?>
                                             </td>
                                             <td><?php echo e(Helpers::formatDate($row['created_at'])); ?></td>
                                             <td>
                                                 <a class="btn btn-outline btn-sm"
-                                                   href="<?php echo e(BASE_URL); ?>?page=agent_ticket_view&amp;id=<?php echo (int) $row['id']; ?>">
+                                                   href="<?php echo e(BASE_URL); ?>?page=manager_ticket_view&amp;id=<?php echo (int) $row['id']; ?>">
                                                     <?php echo e(t('action_view')); ?>
                                                 </a>
                                             </td>
@@ -136,7 +136,7 @@ require VIEWS_PATH . '/layout/sidebar.php';
                             <nav class="pagination" aria-label="<?php echo e(t('pagination_label')); ?>">
                                 <?php if ($pageNum > 1): ?>
                                     <a class="btn btn-outline btn-sm"
-                                       href="<?php echo e(BASE_URL); ?>?page=agent_dashboard&amp;p=<?php echo $pageNum - 1; ?><?php echo $filterSuffix; ?>">
+                                       href="<?php echo e(BASE_URL); ?>?page=manager_dashboard&amp;p=<?php echo $pageNum - 1; ?><?php echo $filterSuffix; ?>">
                                         <?php echo e(t('pagination_prev')); ?>
                                     </a>
                                 <?php endif; ?>
@@ -145,7 +145,7 @@ require VIEWS_PATH . '/layout/sidebar.php';
                                 </span>
                                 <?php if ($pageNum < $pages): ?>
                                     <a class="btn btn-outline btn-sm"
-                                       href="<?php echo e(BASE_URL); ?>?page=agent_dashboard&amp;p=<?php echo $pageNum + 1; ?><?php echo $filterSuffix; ?>">
+                                       href="<?php echo e(BASE_URL); ?>?page=manager_dashboard&amp;p=<?php echo $pageNum + 1; ?><?php echo $filterSuffix; ?>">
                                         <?php echo e(t('pagination_next')); ?>
                                     </a>
                                 <?php endif; ?>

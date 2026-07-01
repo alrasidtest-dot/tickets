@@ -6,8 +6,9 @@
  * from public/index.php for every page. Per-method role checks are the
  * responsibility of each controller via Auth::require / Auth::requireAny.
  *
- * Identity stored in the session: user_id, role, full_name, lang
- * (per docs/SECURITY_AUTH.md). The session also holds operational keys:
+ * Identity stored in the session: user_id, role, full_name, department_id, lang
+ * (per docs/SECURITY_AUTH.md). department_id scopes the department-manager role
+ * without a per-request DB lookup. The session also holds operational keys:
  * _last_activity (idle-timeout housekeeping) and _csrf (CSRF token).
  */
 class Auth
@@ -65,7 +66,7 @@ class Auth
      * Establish an authenticated session for the given user row. Regenerates
      * the session id to prevent fixation.
      *
-     * @param array{id:int,role:string,full_name:string} $user
+     * @param array{id:int,role:string,full_name:string,department_id:?int} $user
      * @return void
      */
     public static function login(array $user)
@@ -75,6 +76,9 @@ class Auth
         $_SESSION['user_id']        = (int) $user['id'];
         $_SESSION['role']           = (string) $user['role'];
         $_SESSION['full_name']      = (string) $user['full_name'];
+        $_SESSION['department_id']  = isset($user['department_id']) && $user['department_id'] !== null
+            ? (int) $user['department_id']
+            : null;
         $_SESSION['lang']           = self::currentLang();
         $_SESSION['_last_activity'] = time();
     }
@@ -138,6 +142,19 @@ class Auth
     public static function fullName()
     {
         return $_SESSION['full_name'] ?? null;
+    }
+
+    /**
+     * Current authenticated user's department id, or null when the user has no
+     * department (used to scope the department-manager role).
+     *
+     * @return int|null
+     */
+    public static function departmentId()
+    {
+        return isset($_SESSION['department_id']) && $_SESSION['department_id'] !== null
+            ? (int) $_SESSION['department_id']
+            : null;
     }
 
     // ---- RBAC guards -------------------------------------------------------

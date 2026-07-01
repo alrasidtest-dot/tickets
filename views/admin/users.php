@@ -210,7 +210,7 @@ require VIEWS_PATH . '/layout/sidebar.php';
                         <p class="empty-state"><?php echo e(t('no_results')); ?></p>
                     <?php else: ?>
                         <div class="table-wrap">
-                            <table class="table">
+                            <table class="table" data-enhance>
                                 <thead>
                                     <tr>
                                         <th><?php echo e(t('label_employee_id')); ?></th>
@@ -219,7 +219,7 @@ require VIEWS_PATH . '/layout/sidebar.php';
                                         <th><?php echo e(t('label_role')); ?></th>
                                         <th><?php echo e(t('label_department')); ?></th>
                                         <th><?php echo e(t('label_account_status')); ?></th>
-                                        <th><?php echo e(t('label_actions')); ?></th>
+                                        <th data-no-sort><?php echo e(t('label_actions')); ?></th>
                                     </tr>
                                 </thead>
                                 <tbody>

@@ -6,7 +6,7 @@
  * a "recent tickets" table, all using the shared bank-identity design tokens.
  * Every visible string comes from lang/ via t(); no hardcoded UI text.
  *
- * @var string                         $role     employee | agent | admin
+ * @var string                         $role     employee | agent | manager | admin
  * @var string                         $fullName
  * @var array<string,int|float>        $stats    from Ticket::dashboardStats()
  * @var array<int,array<string,mixed>> $recent   latest 5 tickets in scope
@@ -16,8 +16,9 @@
 // Map the role to its translation key.
 $roleKey = 'role_' . $role;
 
-// Detail-view route key differs for agents (their own controller).
-$viewPage = $role === 'agent' ? 'agent_ticket_view' : 'ticket_view';
+// Detail-view route key differs per role (each has its own controller).
+$viewPage = $role === 'agent' ? 'agent_ticket_view'
+    : ($role === 'manager' ? 'manager_ticket_view' : 'ticket_view');
 
 // Inline SVG icons (20px, no external icon library — FRONTEND_GUIDE.md).
 $dashIcon = [
@@ -41,7 +42,8 @@ foreach ($statusList as $s) {
 // Each role's cards navigate to that role's ticket list. The chevron icon and
 // hover state (see style.css) signal the cards are clickable.
 $listPage = $role === 'employee' ? 'ticket_my'
-    : ($role === 'agent' ? 'agent_dashboard' : 'admin_tickets');
+    : ($role === 'agent' ? 'agent_dashboard'
+    : ($role === 'manager' ? 'manager_dashboard' : 'admin_tickets'));
 
 // Build a list-page URL, optionally pre-filtered. Null/empty params are dropped,
 // so cards whose metric has no clean single-status filter just open the full list.
@@ -64,9 +66,16 @@ if ($role === 'employee') {
 } elseif ($role === 'agent') {
     $cards = [
         ['assigned_to_me', 'dash_assigned_to_me', 'primary', $dashIcon['assigned'],    $listLink()],
-        ['unassigned',     'dash_unassigned',     'accent',  $dashIcon['unassigned'],  $listLink()],
         ['in_progress',    'dash_in_progress',    'warning', $dashIcon['in_progress'], $listLink(['status_id' => $statusId['in_progress'] ?? null])],
+        ['resolved',       'dash_resolved',       'success', $dashIcon['resolved'],    $listLink(['status_id' => $statusId['resolved'] ?? null])],
         ['overdue',        'dash_overdue',        'danger',  $dashIcon['overdue'],     $listLink()],
+    ];
+} elseif ($role === 'manager') {
+    $cards = [
+        ['total',      'dash_total',      'primary', $dashIcon['total'],      $listLink()],
+        ['open',       'dash_open',       'accent',  $dashIcon['open'],       $listLink()],
+        ['unassigned', 'dash_unassigned', 'warning', $dashIcon['unassigned'], $listLink()],
+        ['overdue',    'dash_overdue',    'danger',  $dashIcon['overdue'],    $listLink()],
     ];
 } else {
     $cards = [
@@ -126,14 +135,14 @@ require VIEWS_PATH . '/layout/sidebar.php';
                         <p class="empty-state"><?php echo e(t('dash_no_recent')); ?></p>
                     <?php else: ?>
                         <div class="table-wrap">
-                            <table class="table">
+                            <table class="table" data-enhance>
                                 <thead>
                                     <tr>
                                         <th><?php echo e(t('label_ticket_number')); ?></th>
                                         <th><?php echo e(t('label_title')); ?></th>
                                         <th><?php echo e(t('label_status')); ?></th>
                                         <th><?php echo e(t('label_created_at')); ?></th>
-                                        <th><?php echo e(t('label_actions')); ?></th>
+                                        <th data-no-sort><?php echo e(t('label_actions')); ?></th>
                                     </tr>
                                 </thead>
                                 <tbody>
